@@ -69,6 +69,9 @@ class ThreadChartRenderer:
         self.timeline_data: List[DataPoint] = []
         self.start_time = time.time()
         self.downsampled_data: List[DataPoint] = []
+        
+        # Add initial empty data point so chart renders from start
+        self.add_data_point({})
     
     def add_data_point(self, operations: Dict[OperationType, int]):
         """Add data point."""
