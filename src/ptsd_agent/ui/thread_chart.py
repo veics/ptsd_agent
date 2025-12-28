@@ -1,9 +1,9 @@
-"""Colored horizontal bands showing execution type layers.
+"""Final design: Colored bands with sparse curve on top.
 
-Beautiful stacked design matching screenshot:
+Beautiful complete visualization:
 - Gray filled baseline
-- Colored Braille horizontal bands per execution type
-- Multiple colors stack to show parallel operations
+- Colored horizontal bands showing execution types
+- Sparse 1-3 dot curve line floating on top
 """
 
 import time
@@ -33,15 +33,18 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders chart with colored horizontal bands."""
+    """Renders chart with bands and curve."""
     
-    # Dense block for filled areas
+    # Sparse curve patterns (1-3 dots)
+    SPARSE_CURVE = ['⠀', '⠁', '⠂', '⠃', '⠄', '⠅', '⠆', '⠇']
+    
+    # Dense block
     DENSE_BLOCK = '⣿'
     
     # Gray for baseline
     GRAY_FILLED = '\033[38;5;240m'
     
-    # Foreground colors for execution types
+    # Foreground colors
     FG_COLORS = {
         OperationType.DISCOVERY: '\033[38;5;110m',
         OperationType.EXECUTION: '\033[38;5;108m',
@@ -71,8 +74,25 @@ class ThreadChartRenderer:
         )
         self.timeline_data.append(point)
     
+    def _get_sparse_curve_char(self, value: float) -> str:
+        """Get sparse curve character (1-3 dots)."""
+        if value <= 0:
+            return self.SPARSE_CURVE[0]
+        
+        ratio = min(value / self.max_threads, 1.0)
+        idx = int(ratio * (len(self.SPARSE_CURVE) - 1))
+        return self.SPARSE_CURVE[idx]
+    
+    def _is_curve_level(self, level_idx: int, total_levels: int, point_value: float) -> bool:
+        """Check if curve should be drawn at this level."""
+        threads_per_level = self.max_threads / total_levels
+        level_max = (level_idx + 1) * threads_per_level
+        level_min = level_idx * threads_per_level
+        
+        return level_min <= point_value < level_max
+    
     def render(self) -> str:
-        """Render colored horizontal bands chart."""
+        """Render complete chart with bands and curve."""
         if not self.timeline_data:
             return ""
         
@@ -97,36 +117,46 @@ class ThreadChartRenderer:
             line = label + " "
             
             for point in downsampled:
-                # Stack operations from bottom to top
-                cumulative = 0
-                drawn = False
-                
-                # Sort operations by type to create consistent bands
-                for op_type in [OperationType.DISCOVERY, OperationType.EXECUTION, 
-                               OperationType.AI_ANALYSIS, OperationType.AUTO_FIX, 
-                               OperationType.CACHE]:
-                    if op_type not in point.operations:
-                        continue
-                    
-                    thread_count = point.operations[op_type]
-                    op_bottom = cumulative
-                    op_top = cumulative + thread_count
-                    cumulative = op_top
-                    
-                    # Check if this operation's band occupies this level
-                    if op_bottom < level_max and op_top > level_min:
-                        # This execution type's horizontal band is at this level
-                        color = self.FG_COLORS.get(op_type, '')
-                        line += color + self.DENSE_BLOCK + self.RESET
-                        drawn = True
-                        break
-                
-                if not drawn:
-                    # Gray filled baseline
-                    if level_idx == 0:
-                        line += self.GRAY_FILLED + self.DENSE_BLOCK + self.RESET
+                # Check if sparse curve should be drawn here (priority)
+                if self._is_curve_level(level_idx, self.height, point.total_threads):
+                    # Draw sparse curve dot on top
+                    dot = self._get_sparse_curve_char(point.total_threads)
+                    if point.operations:
+                        dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
+                        color = self.FG_COLORS.get(dominant_op, '')
+                        line += color + dot + self.RESET
                     else:
-                        line += ' '
+                        line += dot
+                else:
+                    # Draw colored horizontal bands below curve
+                    cumulative = 0
+                    drawn = False
+                    
+                    # Stack operations in consistent order
+                    for op_type in [OperationType.DISCOVERY, OperationType.EXECUTION, 
+                                   OperationType.AI_ANALYSIS, OperationType.AUTO_FIX, 
+                                   OperationType.CACHE]:
+                        if op_type not in point.operations:
+                            continue
+                        
+                        thread_count = point.operations[op_type]
+                        op_bottom = cumulative
+                        op_top = cumulative + thread_count
+                        cumulative = op_top
+                        
+                        # Check if this band occupies this level
+                        if op_bottom < level_max and op_top > level_min:
+                            color = self.FG_COLORS.get(op_type, '')
+                            line += color + self.DENSE_BLOCK + self.RESET
+                            drawn = True
+                            break
+                    
+                    if not drawn:
+                        # Gray filled baseline
+                        if level_idx == 0:
+                            line += self.GRAY_FILLED + self.DENSE_BLOCK + self.RESET
+                        else:
+                            line += ' '
             
             lines.append(line)
         
