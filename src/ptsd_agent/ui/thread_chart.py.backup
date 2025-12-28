@@ -149,7 +149,7 @@ class ThreadChartRenderer:
     
     
     def render(self) -> str:
-        """Render chart with finalized design: yellow curve, colored blocks, crisp edges."""
+        """Render vertical stacked colored bars chart."""
         if not self.timeline_data:
             return ""
         
@@ -159,112 +159,92 @@ class ThreadChartRenderer:
         if not self.downsampled_data:
             return ""
         
-        self.frame_count += 1  # For blinking effect
-        
         lines = []
+        max_log = self._log_scale(self.max_threads)
         
-        # Define 5 levels
-        levels = [12, 9, 6, 3, 1]
-        
-        # Helper function to get operation color at specific level
-        def get_operation_color(operations: Dict[OperationType, int], level: int):
-            """Get color for operation at this level (stacked bottom-up)."""
-            cumulative = 0
-            for op_type in [OperationType.DISCOVERY, OperationType.EXECUTION,
-                           OperationType.AI_ANALYSIS, OperationType.AUTO_FIX, OperationType.CACHE]:
-                if op_type not in operations:
-                    continue
-                count = operations[op_type]
-                bottom = cumulative
-                top = cumulative + count
-                cumulative += count
-                
-                # Level within this operation's range?
-                if level <= top and level > bottom:
-                    return self.FG_COLORS.get(op_type, ''), op_type
-            return None, None
-        
-        # Render each level (top to bottom)
-        for level_idx, level in enumerate(levels):
-            # Y-axis label
-            if level >= 10:
-                label = f"{self.GRAY}{level:3d} ┃{self.RESET}"
-            else:
-                label = f"{self.GRAY}  {level} ┃{self.RESET}"
-            line = label
+        for level_idx in range(self.height - 1, -1, -1):
+            # Calculate log-scale boundaries
+            level_log_max = ((level_idx + 1) / self.height) * max_log
+            level_log_min = (level_idx / self.height) * max_log
             
-            # Render each column
-            for i, point in enumerate(self.downsampled_data):
-                total = point.total_threads
+            # Convert back to thread counts for display
+            level_max = self._inverse_log_scale(level_log_max)
+            level_min = self._inverse_log_scale(level_log_min)
+            
+            # Y-axis label - show actual thread counts
+            if level_idx == self.height - 1:
+                label = f"{self.GRAY}{int(self.max_threads):3d} ┃{self.RESET}"
+            elif level_idx == 0:
+                label = f"{self.GRAY}0.0 ┃{self.RESET}"
+            else:
+                # Show approximate thread count at this level
+                label = f"{self.GRAY} {int(level_max):2d} ┃{self.RESET}"
+            
+            line = label + " "
+            
+            for col_idx, point in enumerate(self.downsampled_data):
+                curve_level = self._get_curve_level(point.total_threads)
+                band_max = self._get_band_max_level(point.total_threads)
                 
-                if total == 0:
-                    line += " "
-                    continue
-                
-                # TOP LEVEL - CONTINUOUS YELLOW CURVE
-                if level_idx == 0:
-                    sparse_char = self.SPARSE_CHARS[i % len(self.SPARSE_CHARS)]
-                    if total > 0:
-                        line += self.YELLOW + sparse_char + self.RESET
+                # Check if curve dot should be drawn
+                if curve_level == level_idx:
+                    dot = self._get_prominent_curve_char(point.total_threads)
+                    if point.operations:
+                        dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
+                        color = self.FG_COLORS.get(dominant_op, '')
+                        line += color + dot + self.RESET
                     else:
-                        line += " "
+                        line += dot
                 else:
-                    # Get color for this level
-                    color, op = get_operation_color(point.operations, level)
-                    
-                    if color:
-                        # Check for crisp edge (operation transition)
-                        prev_color, prev_op = None, None
-                        if i > 0:
-                            prev_color, prev_op = get_operation_color(
-                                self.downsampled_data[i-1].operations, level
-                            )
-                        
-                        # Crisp edge at transition
-                        if prev_op and prev_op != op:
-                            line += color + self.EDGE_CHAR + self.RESET
-                        else:
-                            # Full block
-                            line += color + self.FULL_BLOCK + self.RESET
+                    # Check for connecting line
+                    connection = self._is_connecting_line(level_idx, col_idx)
+                    if connection:
+                        line += connection
                     else:
-                        line += " "
+                        # Draw colored bands - each execution type as separate band
+                        cumulative = 0
+                        drawn = False
+                        
+                        # Stack from bottom to top: Discovery, Execution, AI, Fix, Cache
+                        for op_type in [OperationType.DISCOVERY, OperationType.EXECUTION, 
+                                       OperationType.AI_ANALYSIS, OperationType.AUTO_FIX, 
+                                       OperationType.CACHE]:
+                            if op_type not in point.operations:
+                                continue
+                            
+                            thread_count = point.operations[op_type]
+                            op_bottom = cumulative
+                            # Respect spacing below curve
+                            op_top = min(cumulative + thread_count, band_max)
+                            cumulative += thread_count
+                            
+                            # Check if this execution type's band is at this level
+                            if op_bottom < level_max and op_top > level_min:
+                                # This level shows this execution type's colored band
+                                color = self.FG_COLORS.get(op_type, '')
+                                line += color + self.DENSE_BLOCK + self.RESET
+                                drawn = True
+                                break
+                        
+                        if not drawn:
+                            # Sparse dot baseline at bottom
+                            if level_idx == 0:
+                                line += self.BASELINE_COLOR + self.BASELINE_CHAR + self.RESET
+                            else:
+                                line += ' '
             
             lines.append(line)
         
-        # GREEN TIMELINE with BLINKING
-        import shutil
-        tw = shutil.get_terminal_size().columns
-        
-        # Find lust data point
-        last_idx = -1
-        for i in range(len(self.downsampled_data) - 1, -1, -1):
-            if self.downsampled_data[i].total_threads > 0:
-                last_idx = i
-                break
-        
+        # Timeline axis - only draw for actual data points (not future)
+        actual_data_count = len([p for p in self.downsampled_data if p.total_threads > 0 or p.operations])
         timeline_line = f"{self.GRAY}    ┗━━{self.RESET}"
-        
-        # GREEN progress
-        for i in range(len(self.downsampled_data)):
-            if i < last_idx:
-                # Solid green
-                timeline_line += f"{self.GREEN}━{self.RESET}"
-            elif i == last_idx:
-                # BLINK: washed green ↔ grey
-                if self.frame_count % 2 == 0:
-                    timeline_line += f"{self.FADED_GREEN}━{self.RESET}"
-                else:
-                    timeline_line += f"{self.GRAY}━{self.RESET}"
-        
-        # Gap + grey to terminal width
-        timeline_line += " "
-        visible_so_far = 7 + (last_idx + 1 if last_idx >= 0 else 0) + 1
-        remaining = tw - visible_so_far - 1
-        if remaining > 0:
-            timeline_line f"{self.GRAY}{'━' * remaining} +={self.RESET}"
-        else:
-            timeline_line += f"{self.GRAY}┛{self.RESET}"
-        
+        for idx in range(len(self.downsampled_data)):
+            # Only draw solid line for points with actual data
+            if idx < actual_data_count:
+                timeline_line += self.BASELINE_COLOR + "━" + self.RESET
+            else:
+                timeline_line += " "  # Empty space for future
+        timeline_line += self.GRAY + "┛" + self.RESET
         lines.append(timeline_line)
         
         # Time labels
