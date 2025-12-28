@@ -1073,8 +1073,9 @@ def main():
     # Ensure it uses current width logic
     display.term_width = width
     
-    # Enter alternate screen for running tests UI
-    display.terminal.enter_alternate_screen()
+    # Alternate screen disabled - user wants to see terminal history
+    # Original in-place rendering is better UX for this use case
+    # display.terminal.enter_alternate_screen()
         
     # Start animation thread AFTER initial render is complete
     animation_thread = threading.Thread(target=animation_loop, daemon=True)
