@@ -575,18 +575,59 @@ class BottomBar:
 # =============================================================================
 
 class DiagnosticsSection:
-    """Display detailed test diagnostics: failures, errors, warnings, skipped tests"""
+    """Display detailed test diagnostics: failures, errors, warnings, skipped tests
     
-    def __init__(self, collector, term_width: int = None, show_diagnostics: bool = False):
+    Supports two display modes:
+    - tree: Hierarchical tree view (Phase → Component → Type → File → Test)
+    - flat: Traditional flat list view (default for backward compatibility)
+    """
+    
+    def __init__(self, collector, term_width: int = None, show_diagnostics: bool = False,
+                 use_tree_view: bool = False, state: Dict = None, active_phases: List = None):
+        """Initialize diagnostics section.
+        
+        Args:
+            collector: MetricsCollector with component data
+            term_width: Terminal width for formatting
+            show_diagnostics: Whether to show diagnostics
+            use_tree_view: If True, use tree view. If False, use flat view.
+            state: Global state dict (required for tree view)
+            active_phases: List of active phase IDs (required for tree view)
+        """
         self.collector = collector
         self.term_width = term_width or get_terminal_width()
         self.show_diagnostics = show_diagnostics
+        self.use_tree_view = use_tree_view
+        self.state = state
+        self.active_phases = active_phases or []
     
     def build(self) -> List[str]:
         """Build diagnostics section lines"""
         if not self.show_diagnostics:
             return []
         
+        # Use tree view if enabled and state is available
+        if self.use_tree_view and self.state is not None:
+            return self._build_tree_view()
+        else:
+            return self._build_flat_view()
+    
+    def _build_tree_view(self) -> List[str]:
+        """Build hierarchical tree view of diagnostics."""
+        from ptsd_agent.ui.diagnostic_tree import DiagnosticTreeBuilder, DiagnosticTreeRenderer
+        
+        # Build tree structure
+        builder = DiagnosticTreeBuilder()
+        root = builder.build_tree(self.collector, self.state, self.active_phases)
+        
+        # Render tree
+        renderer = DiagnosticTreeRenderer(term_width=self.term_width)
+        lines = renderer.render(root, show_all=False)
+        
+        return lines
+    
+    def _build_flat_view(self) -> List[str]:
+        """Build traditional flat list view of diagnostics (legacy format)."""
         lines = []
         
         # Aggregate diagnostics from all components

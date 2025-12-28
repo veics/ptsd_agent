@@ -64,6 +64,8 @@ def main():
     # Diagnostics display
     parser.add_argument("--diagnostics", "-d", action="store_true",
                        help="Show detailed diagnostics section with failures, errors, warnings, and skip reasons")
+    parser.add_argument("--diagnostics-tree", action="store_true",
+                       help="Use hierarchical tree view for diagnostics (matches test execution structure)")
     
     # Test collection accuracy
     parser.add_argument("--accurate", action="store_true", default=True,
@@ -1665,7 +1667,10 @@ def main():
                 diagnostics = DiagnosticsSection(
                     collector=collector,
                     term_width=term_width,
-                    show_diagnostics=True
+                    show_diagnostics=True,
+                    use_tree_view=args.diagnostics_tree,
+                    state=state,
+                    active_phases=active_phases
                 )
                 diag_lines = diagnostics.build()
                 if diag_lines:
