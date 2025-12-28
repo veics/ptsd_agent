@@ -36,18 +36,29 @@ class PytestDiscoverer:
     def estimate_test_count(self, file: TestFile) -> int:
         """Fast AST-based estimation."""
         try:
-            content = file.path.read_text()
+            # Try UTF-8 first, fallback to latin-1 for non-UTF-8 files
+            try:
+                content = file.path.read_text(encoding='utf-8')
+            except UnicodeDecodeError:
+                content = file.path.read_text(encoding='latin-1', errors='ignore')
+            
             tree = ast.parse(content)
             
             count = 0
+            
+            # Only examine module-level nodes (not nested via ast.walk)
             for node in tree.body:
-                # Count test functions
-                if isinstance(node, ast.FunctionDef):
-                    if node.name.startswith('test_'):
-                        count += 1
-                # Count test methods in classes
-                elif isinstance(node, ast.ClassDef):
-                    if node.name.startswith('Test'):
+                if isinstance(node, ast.FunctionDef) and node.name.startswith('test_'):
+                    # Module-level test function
+                    count += 1
+                elif isinstance(node, ast.ClassDef) and node.name.startswith('Test'):
+                    # Test class - skip if it has __init__ (dataclasses)
+                    has_init = any(
+                        isinstance(item, ast.FunctionDef) and item.name == '__init__'
+                        for item in node.body
+                    )
+                    if not has_init:
+                        # Count test methods in actual test classes
                         for item in node.body:
                             if isinstance(item, ast.FunctionDef) and item.name.startswith('test_'):
                                 count += 1
@@ -55,7 +66,10 @@ class PytestDiscoverer:
             return count
         except Exception:
             # Fallback to regex if AST fails
-            content = file.path.read_text()
+            try:
+                content = file.path.read_text(encoding='utf-8')
+            except UnicodeDecodeError:
+                content = file.path.read_text(encoding='latin-1', errors='ignore')
             return len(re.findall(r'^\s*def test_\w+', content, re.MULTILINE))
     
     async def collect_accurate(
