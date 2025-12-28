@@ -1044,9 +1044,11 @@ def main():
         # This uses the same fast discovery as --discover mode
         # from ptsd_agent.ui.discovery import DiscoveryDisplay, count_tests_in_file, parallel_count_tests  # TODO: DISABLED
         # skip - module not available
-        from os import scandir
-        
-        discovery_display = DiscoveryDisplay()
+        raise ImportError("Skip orphaned discovery section")
+    except (ImportError, NameError, AttributeError):
+        # Discovery module not available - skip entire orphaned section (lines 1047-1216)
+        # Execution continues at line ~1217 with test execution loop
+        pass
         
         # Collect all test files from all components
         all_test_files = []
