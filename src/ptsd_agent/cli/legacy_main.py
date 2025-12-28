@@ -6,10 +6,12 @@ import signal
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from ptsd_agent.ui.legacy_display import ProgressiveDisplay
+from ptsd_agent.ui.thread_chart import ThreadChartRenderer
 from ptsd_agent.metrics.legacy_collector import MetricsCollector
 from ptsd_agent.metrics.legacy_logger import MetricsLogger
 from ptsd_agent.execution.legacy_executor import TestExecutor
 from ptsd_agent.core.config import load_config
+from ptsd_agent.core.thread_pool import ThreadPoolCoordinator, OperationType
 # from ptsd_agent.report_logging import get_log_manager  # TODO: Fix module path
 
 def _signal_handler(signum, frame):
@@ -703,7 +705,26 @@ def main():
     
     # Initialization
     collector = MetricsCollector()
+    
+    # Initialize thread chart
+    thread_chart = ThreadChartRenderer(
+        max_threads=12,
+        terminal_width=80,
+        height=5
+    )
+    
+    # Initialize thread pool with chart
+    thread_pool = ThreadPoolCoordinator(
+        max_threads=12,
+        thread_chart=thread_chart,
+        config=project_config.__dict__ if hasattr(project_config, '__dict__') else {}
+    )
+    
     display = ProgressiveDisplay("RAGE", collector=collector)
+    # Give display reference to thread chart
+    display.thread_chart = thread_chart
+    display.thread_chart_enabled = True
+    
     logger = MetricsLogger()
     
     # Initialize executor with coverage storage if enabled

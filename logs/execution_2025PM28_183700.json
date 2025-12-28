@@ -1,0 +1,45 @@
+{
+  "timestamp": "2025-12-28T18:37:00.235858",
+  "summary": {
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "total": 0,
+    "pass_rate": 0.0,
+    "duration": 0.23867011070251465,
+    "component_count": 3
+  },
+  "components": {
+    "architecture": {
+      "name": "architecture",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "contracts": {
+      "name": "contracts",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "acl": {
+      "name": "acl",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    }
+  }
+}

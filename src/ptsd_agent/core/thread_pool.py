@@ -200,10 +200,16 @@ class ThreadPoolCoordinator:
                 self.stats['total_operations'] += 1
                 self.stats['by_type'][operation_type] += 1
                 
-                # Update thread chart
+                # Update thread chart with operation type counts
                 if self.thread_chart:
-                    active_count = len(self.active_operations)
-                    self.thread_chart.add_data_point(active_count, operation_type)
+                    # Count active threads per operation type
+                    ops_by_type = {}
+                    for op in self.active_operations.values():
+                        op_type = op.operation_type
+                        ops_by_type[op_type] = ops_by_type.get(op_type, 0) + 1
+                    
+                    # Feed correct format to chart
+                    self.thread_chart.add_data_point(ops_by_type)
             
             try:
                 result = func(*args, **kwargs)
@@ -221,8 +227,14 @@ class ThreadPoolCoordinator:
                     
                     # Update chart
                     if self.thread_chart:
-                        active_count = len(self.active_operations)
-                        self.thread_chart.add_data_point(active_count, operation_type)
+                        # Count active threads per operation type
+                        ops_by_type = {}
+                        for op in self.active_operations.values():
+                            op_type = op.operation_type
+                            ops_by_type[op_type] = ops_by_type.get(op_type, 0) + 1
+                        
+                        # Feed correct format to chart
+                        self.thread_chart.add_data_point(ops_by_type)
         
         # Submit to executor
         future = self.executor.submit(wrapped_func, *args, **kwargs)
