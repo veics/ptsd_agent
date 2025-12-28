@@ -183,10 +183,11 @@ class KnownIssuesRegistry:
         
         Creates the file if it doesn't exist. Updates the last_updated timestamp.
         """
+        from datetime import timezone
         data = {
             'version': '1.0',
             'project': self.project_name,
-            'last_updated': datetime.now(datetime.UTC).isoformat().replace('+00:00', 'Z'),
+            'last_updated': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
             'issues': [asdict(issue) for issue in self.issues]
         }
         

@@ -66,6 +66,24 @@ def main():
                        help="Show detailed diagnostics section with failures, errors, warnings, and skip reasons")
     parser.add_argument("--diagnostics-tree", action="store_true",
                        help="Use hierarchical tree view for diagnostics (matches test execution structure)")
+    parser.add_argument("--hide-known-issues", action="store_true",
+                       help="Hide known issues from diagnostics display (requires known_issues.yaml)")
+    
+    # Known Issues Registry
+    parser.add_argument("--document-issue", nargs='+', metavar='ARG',
+                       help="Document known issue: ID TYPE COMPONENT PATTERN 'REASON' [--ticket-url URL] [--tags tag1,tag2]")
+    parser.add_argument("--ticket-url", type=str,
+                       help="Ticket URL for --document-issue")
+    parser.add_argument("--tags", type=str,
+                       help="Comma-separated tags for --document-issue")
+    parser.add_argument("--remove-issue", metavar='ID',
+                       help="Remove known issue by ID")
+    parser.add_argument("--list-known-issues", action="store_true",
+                       help="List all known issues with optional filters")
+    parser.add_argument("--known-issue-component", type=str,
+                       help="Filter known issues by component (use with --list-known-issues)")
+    parser.add_argument("--known-issue-type", type=str, choices=['failure', 'error', 'warning', 'skip'],
+                       help="Filter known issues by type (use with --list-known-issues)")
     
     # Test collection accuracy
     parser.add_argument("--accurate", action="store_true", default=True,
@@ -108,6 +126,61 @@ def main():
     else:
         max_workers = args.parallel  # User-specified
         parallel_mode = True
+    
+    # Handle Known Issues Registry commands (before project directory change)
+    if args.document_issue:
+        from ptsd_agent.mcp.tools.known_issues import document_known_issue
+        if len(args.document_issue) < 5:
+            print("Error: --document-issue requires 5 arguments: ID TYPE COMPONENT PATTERN REASON")
+            print("Example: --document-issue JIRA-1234 failure acl 'test_oauth_*' 'OAuth server unavailable'")
+            sys.exit(1)
+        
+        issue_id, type_arg, component, pattern = args.document_issue[:4]
+        reason = ' '.join(args.document_issue[4:])
+        tags = args.tags.split(',') if args.tags else None
+        
+        result = document_known_issue(
+            issue_id=issue_id,
+            type=type_arg,
+            component=component,
+            test_pattern=pattern,
+            reason=reason,
+            ticket_url=args.ticket_url,
+            tags=tags
+        )
+        
+        print(f"{result['status'].upper()}: {result['message']}")
+        sys.exit(0 if result['status'] == 'success' else 1)
+    
+    if args.remove_issue:
+        from ptsd_agent.mcp.tools.known_issues import remove_known_issue
+        result = remove_known_issue(args.remove_issue)
+        print(f"{result['status'].upper()}: {result['message']}")
+        sys.exit(0 if result['status'] == 'success' else 1)
+    
+    if args.list_known_issues:
+        from ptsd_agent.mcp.tools.known_issues import list_known_issues
+        result = list_known_issues(
+            component=args.known_issue_component,
+            type_filter=args.known_issue_type,
+            format="detailed"
+        )
+        
+        if result['status'] == 'success':
+            print(f"\n{result['message']}\n")
+            if result['count'] > 0:
+                for issue in result['issues']:
+                    print(f"  [{issue['id']}] {issue['type']} in {issue['component']}")
+                    print(f"    Pattern: {issue['test_pattern']}")
+                    print(f"    Reason: {issue['reason']}")
+                    if issue.get('ticket_url'):
+                        print(f"    Ticket: {issue['ticket_url']}")
+                    if issue.get('tags'):
+                        print(f"    Tags: {', '.join(issue['tags'])}")
+                    print()
+        else:
+            print(f"ERROR: {result['message']}")
+        sys.exit(0 if result['status'] == 'success' else 1)
     
     # Change to project directory if specified
     if args.project:
