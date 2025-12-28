@@ -113,7 +113,7 @@ def main():
     
     # Handle --history / --detailed-history / --history-run
     if args.history or args.detailed_history or args.history_run:
-        from ptsd_agent.history import get_history_store
+        from ptsd_agent.storage.legacy_history import get_history_store
         history = get_history_store()
         
         CYAN = "\033[96m"
@@ -247,8 +247,8 @@ def main():
     
     # Handle standalone --overview (show last results without running tests)
     if (args.overview or args.from_run) and not args.run_tests and not args.discover:
-        from ptsd_agent.history import get_history_store
-        from ptsd_agent.taskmaster import TaskMasterLoader
+        from ptsd_agent.storage.legacy_history import get_history_store
+        # from ptsd_agent.integrations.legacy_taskmaster import TaskMasterLoader  # TODO: Module doesn't exist
         import shutil
         
         history = get_history_store()
@@ -357,8 +357,9 @@ def main():
             phases_data = {}
         
         # Load Task Master data for task-based phases
-        tm_loader = TaskMasterLoader()
-        tm_summary = tm_loader.load()
+        # tm_loader = TaskMasterLoader()  # TODO: Disabled
+        # tm_summary = tm_loader.load()
+        tm_summary = None
         
         task_by_id = {}
         if tm_summary:
@@ -704,9 +705,10 @@ def main():
     }
 
     # Load Task Master data for non-testable components
-    from ptsd_agent.taskmaster import TaskMasterLoader
-    tm_loader = TaskMasterLoader(project_root=".")  # Use current directory
-    tm_summary = tm_loader.load() if tm_loader.exists() else None
+    # from ptsd_agent.integrations.legacy_taskmaster import TaskMasterLoader  # TODO: Module doesn't exist
+    # tm_loader = TaskMasterLoader(project_root=".")  # Use current directory
+    # tm_summary = tm_loader.load() if tm_loader.exists() else None
+    tm_summary = None  # Temporarily disabled
     
     # Build task ID to status mapping
     tm_task_map = {}
@@ -714,7 +716,7 @@ def main():
         for task in tm_summary.tasks:
             tm_task_map[str(task.id)] = task.phase_status  # Returns: "planned", "ready", "in-progress", "completed"
             
-    from ptsd_agent.status_logic import determine_component_status, determine_phase_status
+    from ptsd_agent.core.status_logic import determine_component_status, determine_phase_status
     
     for p_id in active_phases:
         config = phase_configs[p_id]
@@ -923,7 +925,7 @@ def main():
 
         # Simulation Mode: Load from history instead of running tests
         if simulation_mode:
-            from ptsd_agent.history import get_history_store
+            from ptsd_agent.storage.legacy_history import get_history_store
             history = get_history_store()
             historical = history.get_latest_run()
             
@@ -1290,7 +1292,7 @@ def main():
         logger.log_snapshot(summary, collector.components)
         
         # Save run history (JSON + SQLite)
-        from ptsd_agent.history import get_history_store
+        from ptsd_agent.storage.legacy_history import get_history_store
         history = get_history_store()
         
         # Build comprehensive run state for history
@@ -1478,7 +1480,7 @@ def main():
             # Load baseline for delta comparison when targeting specific phases
             baseline_summary = None
             if target_phases:
-                from ptsd_agent.history import get_history_store
+                from ptsd_agent.storage.legacy_history import get_history_store
                 history = get_history_store()
                 # Find baseline run that wasn't targeting specific phases (full run)
                 all_runs = history.get_all_runs(limit=20)
@@ -1568,7 +1570,7 @@ def main():
             # Header is printed inside expanded block, not here
             
             # Load history data for metrics (just saved in this run)
-            from ptsd_agent.history import get_history_store
+            from ptsd_agent.storage.legacy_history import get_history_store
             history = get_history_store()
             runs = history.list_runs(limit=1)
             phases_data = {}
@@ -1578,7 +1580,7 @@ def main():
                     phases_data = target_run.get('phases', {})
         
             # Load Task Master data for accurate phase status
-            from ptsd_agent.taskmaster import TaskMasterLoader
+            from ptsd_agent.integrations.legacy_taskmaster import TaskMasterLoader
             tm_loader = TaskMasterLoader()
             tm_summary = tm_loader.load()
             
