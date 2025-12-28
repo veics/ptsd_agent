@@ -1073,9 +1073,8 @@ def main():
     # Ensure it uses current width logic
     display.term_width = width
     
-    # Alternate screen disabled - causes progress bars not to show during execution
-    # TODO: Re-enable with proper buffer management
-    # display.terminal.enter_alternate_screen()
+    # Enter alternate screen for running tests UI
+    display.terminal.enter_alternate_screen()
         
     # Start animation thread AFTER initial render is complete
     animation_thread = threading.Thread(target=animation_loop, daemon=True)
@@ -1132,10 +1131,23 @@ def main():
         # Log results
         logger.log_snapshot(summary, collector.components)
         
-        # Alternate screen exit and summary disabled (progress bars broken with alternate screen)
-        # TODO: Re-enable when proper buffer management implemented
-        # display.terminal.exit_alternate_screen()
-        # Print summary code commented out
+        # Exit alternate screen and print final UI state to history
+        display.terminal.exit_alternate_screen()
+        
+        # Print the final UI state that was in alternate screen (for terminal history)
+        final_ui = display.get_last_output()
+        if final_ui:
+            print(final_ui)
+            print()  # Extra blank line
+        
+        # Print completion summary
+        from ptsd_agent.ui.theme import CYAN, BOLD, RESET, DIM
+        print(f"{BOLD}{CYAN}{'=' * 80}{RESET}")
+        print(f"{BOLD}Test Execution Complete{RESET}")
+        print(f"{CYAN}{'=' * 80}{RESET}")
+        print()
+        print(f"{DIM}Run saved to history{RESET}")
+        print()
         
         # Save run history (JSON + SQLite)
         from ptsd_agent.storage.legacy_history import get_history_store
