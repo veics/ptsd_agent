@@ -1042,7 +1042,8 @@ def main():
     try:
         # Pre-discovery: Use fast regex-based test counting from discovery.py
         # This uses the same fast discovery as --discover mode
-        from ptsd_agent.ui.discovery import DiscoveryDisplay, count_tests_in_file, parallel_count_tests
+        # from ptsd_agent.ui.discovery import DiscoveryDisplay, count_tests_in_file, parallel_count_tests  # TODO: DISABLED
+        raise ImportError("Discovery module not found - skipping")  # Force skip
         from os import scandir
         
         discovery_display = DiscoveryDisplay()
