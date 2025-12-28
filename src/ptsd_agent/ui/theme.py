@@ -117,5 +117,7 @@ def get_progress_bar_config():
         "blinking_color": ORANGE,
         "reset": RESET,
         "filled_char": "▰",
-        "empty_char": "▱"
+        "empty_char": "▱",
+        "filled_color": CYAN,  # Color for filled portion
+        "empty_color": GRAY    # Color for empty portion
     }
