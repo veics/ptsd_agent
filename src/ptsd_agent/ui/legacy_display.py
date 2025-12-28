@@ -386,6 +386,7 @@ class ProgressiveDisplay:
             sys.stdout.write("\033[?25l")
             
             full_output = "\n".join(self.lines) + "\n"
+            self.last_output = full_output  # Store for printing after alternate screen exit
             sys.stdout.write(full_output)
             sys.stdout.flush()
             
