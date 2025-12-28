@@ -1,7 +1,6 @@
-"""Clean thread chart with colored Braille backgrounds.
+"""Clean thread chart with colored Braille characters (foreground only).
 
-Elegant visualization using ONLY Braille characters with
-background colors - no foreground coloring.
+Each colored Braille block represents an operation type running.
 """
 
 import time
@@ -31,21 +30,21 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders thread chart with colored Braille backgrounds."""
+    """Renders thread chart with colored Braille characters."""
     
-    # Braille block (full block for now, can vary density later)
+    # Braille block
     BRAILLE_BLOCK = '⣿'
     
-    # Smooth curve patterns for top line
+    # Smooth curve patterns
     CURVE_CHARS = ['⠀', '⠤', '⣀', '⣤', '⣶', '⣿']
     
-    # Background colors ONLY (no foreground)
-    BG_COLORS = {
-        OperationType.DISCOVERY: '\033[48;5;17m',       # Dark blue bg
-        OperationType.EXECUTION: '\033[48;5;22m',       # Dark green bg
-        OperationType.AI_ANALYSIS: '\033[48;5;94m',     # Dark yellow bg
-        OperationType.AUTO_FIX: '\033[48;5;52m',        # Dark red bg
-        OperationType.CACHE: '\033[48;5;23m',           # Dark cyan bg
+    # FOREGROUND colors only (colored Braille characters)
+    FG_COLORS = {
+        OperationType.DISCOVERY: '\033[38;5;110m',      # Soft blue
+        OperationType.EXECUTION: '\033[38;5;108m',       # Soft green
+        OperationType.AI_ANALYSIS: '\033[38;5;180m',     # Soft yellow
+        OperationType.AUTO_FIX: '\033[38;5;174m',        # Soft red
+        OperationType.CACHE: '\033[38;5;109m',           # Soft cyan
     }
     
     RESET = '\033[0m'
@@ -79,7 +78,7 @@ class ThreadChartRenderer:
         return self.CURVE_CHARS[idx]
     
     def render(self) -> str:
-        """Render Braille chart with background colors."""
+        """Render Braille chart with foreground colors."""
         if not self.timeline_data:
             return ""
         
@@ -105,35 +104,35 @@ class ThreadChartRenderer:
             
             for point in downsampled:
                 if level_idx == self.height - 1:
-                    # Top level - smooth curve (no background)
+                    # Top level - smooth curve
                     char = self._get_curve_char(point.total_threads)
                     line += char
                 else:
-                    # Stacked operation blocks with background colors
+                    # Stacked colored Braille blocks (foreground color)
                     rendered = False
                     
                     for op_type, thread_count in sorted(point.operations.items(), 
                                                        key=lambda x: x[1], reverse=True):
                         if thread_count > level_min:
-                            # This operation is active at this level
-                            bg_color = self.BG_COLORS.get(op_type, '')
-                            line += bg_color + self.BRAILLE_BLOCK + self.RESET
+                            # Colored Braille character
+                            fg_color = self.FG_COLORS.get(op_type, '')
+                            line += fg_color + self.BRAILLE_BLOCK + self.RESET
                             rendered = True
-                            break  # Only one block per column
+                            break
                     
                     if not rendered:
                         line += ' '
             
             lines.append(line)
         
-        # Timeline axis with colored dots
+        # Timeline axis
         timeline_line = f"{self.GRAY}    ┗━━{self.RESET}"
         
         for point in downsampled:
             if point.operations:
                 dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
-                bg_color = self.BG_COLORS.get(dominant_op, '')
-                timeline_line += bg_color + " " + self.RESET
+                fg_color = self.FG_COLORS.get(dominant_op, '')
+                timeline_line += fg_color + "⠒" + self.RESET
             else:
                 timeline_line += " "
         
