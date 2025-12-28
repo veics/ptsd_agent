@@ -1,0 +1,95 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ptsd-agent"
+version = "1.0.0-beta.1"
+description = "Progressive Test Status Dashboard - Universal test runner with rich diagnostics"
+readme = "README.md"
+requires-python = ">=3.14"
+license = {text = "MIT"}
+authors = [
+    {name = "PTSD Agent Contributors"}
+]
+keywords = ["testing", "pytest", "diagnostics", "test-runner", "dashboard"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Testing",
+    "Programming Language :: Python :: 3.14",
+]
+
+dependencies = [
+    "pytest>=8.0.0",
+    "pytest-xdist>=3.5.0",
+    "pyyaml>=6.0",
+    "blessed>=1.20.0",
+    "sqlalchemy>=2.0.0",
+    "click>=8.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.23.0",
+    "black>=24.0.0",
+    "mypy>=1.8.0",
+    "ruff>=0.1.0",
+]
+mcp = [
+    "mcp>=1.0.0",
+]
+all = [
+    "ptsd-agent[dev,mcp]",
+]
+
+[project.scripts]
+ptsd_agent = "ptsd_agent.cli.main:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/ptsd_agent"
+Documentation = "https://ptsd-agent.readthedocs.io"
+Repository = "https://github.com/yourusername/ptsd_agent"
+Issues = "https://github.com/yourusername/ptsd_agent/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ptsd_agent = ["py.typed"]
+
+[tool.black]
+line-length = 100
+target-version = ["py314"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--cov=src/ptsd_agent",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+markers = [
+    "unit: Unit tests (fast, isolated)",
+    "integration: Integration tests (slower, requires setup)",
+    "slow: Slow running tests",
+]
