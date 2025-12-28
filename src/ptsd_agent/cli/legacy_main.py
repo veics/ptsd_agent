@@ -924,9 +924,8 @@ def main():
             return
 
         c_state["status"] = "running"
-        # Initialize progress to 0 only if not set (don't reset existing progress)
-        if "progress" not in c_state or c_state["progress"] is None:
-            c_state["progress"] = 0
+        # Progress already initialized to 0 at component creation (line 752)
+        # Don't modify it - let update_current_test callback handle updates
         c_state["current_test"] = f"Initializing..."
         render_all()
 
