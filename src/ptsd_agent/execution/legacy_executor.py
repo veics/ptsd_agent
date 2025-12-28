@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 from pathlib import Path
 from ptsd_agent.metrics.legacy_collector import MetricsCollector, TestResult
 from ..discovery.fast_counter import FastTestCounter  # NEW: Phase 2
+from ..core.thread_pool import OperationType, OperationPriority  # NEW: Phase 5
 
 logger = logging.getLogger(__name__)
 
@@ -143,20 +144,6 @@ class TestExecutor:
         # Get PYTHONPATH for this test
         pythonpath = self._get_pythonpath_for_test(test_path)
         
-        # Check if path exists (or is empty/None - Task Master components have no test_path)
-        if not test_path or not Path(test_path).exists():
-            # No tests - path doesn't exist or was not specified, just return 0
-            return 0
-        
-        # Phase 2 optimization: Use cached discovery if available
-        if component_name in self._discovery_cache:
-            cached = self._discovery_cache[component_name]
-            # Already set during discover_all_components, just use the cached count
-            logger.debug(f"Using cached discovery for {component_name}: ~{cached['tests']} tests")
-        else:
-            # Fallback: Run discovery if not cached (shouldn't happen in normal flow)
-            tests, error_msg = self._discover_tests(test_path, pythonpath=pythonpath)
-            if not tests:
                 # No tests discovered - just return 0
                 return 0
             # Store discovered count for accurate progress calculation
