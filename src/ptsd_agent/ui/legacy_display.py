@@ -408,25 +408,23 @@ class ProgressiveDisplay:
                 # Re-render in alternate screen
                 sys.stdout.write("\033[2J\033[H")  # Clear and home
             
-            # Build final output with thread charts if enabled
+            # Build final output with thread chart at top if enabled
             output_parts = []
             
-            # Add thread charts at top (if enabled and has data)
+            # Add minimalistic thread chart at very top (single line)
             if self.thread_chart_enabled and self.thread_chart:
                 try:
-                    # Show real-time chart
-                    chart = self.thread_chart.render_realtime_chart()
-                    if chart:
-                        output_parts.append(chart)
-                        output_parts.append("")  # Blank line separator
+                    chart_line = self.thread_chart.render()
+                    if chart_line:
+                        output_parts.append(chart_line)  # Single line chart
                 except Exception:
-                    pass  # Silently fail if chart rendering has issues
+                    pass  # Silently fail if chart has issues
             
             # Add regular display lines
             output_parts.extend(self.lines)
             
             full_output = "\n".join(output_parts) + "\n"
-            self.last_output = full_output  # Store for printing after alternate screen exit
+            self.last_output = full_output
             sys.stdout.write(full_output)
             sys.stdout.flush()
             
