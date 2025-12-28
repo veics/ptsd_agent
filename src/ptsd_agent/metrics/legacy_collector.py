@@ -121,3 +121,28 @@ class MetricsCollector:
             "duration": duration,
             "component_count": len(self.components)
         }
+    
+    def record_skip(self, test_name: str, component: str, reason: str, 
+                    marker: str, phase_id: int = None, file_path: str = None):
+        """Record a skip event for audit trail.
+        
+        Args:
+            test_name: Name of skipped test
+            component: Component name  
+            reason: Skip reason from pytest
+            marker: Skip marker type (skip, skipif, xfail, etc.)
+            phase_id: Optional phase ID
+            file_path: Optional test file path
+        """
+        from datetime import datetime, timezone
+        
+        skip_event = {
+            'test_name': test_name,
+            'component': component,
+            'reason': reason,
+            'marker': marker,
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'phase_id': phase_id,
+            'file_path': file_path
+        }
+        self.skip_events.append(skip_event)
