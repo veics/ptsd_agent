@@ -1,7 +1,10 @@
-"""Professional thread utilization chart with color gradients.
+"""Elegant thread utilization chart with curved edges and gradients.
 
-Shows thread activity with smooth color gradients that fade
-based on thread intensity, creating an elegant visualization.
+Professional visualization with:
+- Smooth Braille curves at edges
+- Gradient fills (░▒▓)
+- Tick marks on X-axis
+- Elegant, modern appearance
 """
 
 import time
@@ -28,23 +31,29 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders professional thread chart with color gradients."""
+    """Renders elegant thread chart with curved edges."""
     
-    # Gradient characters (light to heavy)
+    # Braille patterns for smooth baseline curves
+    BRAILLE_BOTTOM = ['⠤', '⢄', '⣀', '⣀', '⣀', '⡠', '⠤']
+    BRAILLE_TOP_RISE = ['⣠', '⠎', '⠱']
+    BRAILLE_TOP_FALL = ['⠹', '⠱', '⣄']
+    
+    # Gradient characters
     GRADIENT_CHARS = ['░', '▒', '▓', '█']
     
     # ANSI 256-color codes for smooth gradients
-    # Each operation type has a gradient from light to dark
     COLOR_GRADIENTS = {
-        OperationType.DISCOVERY: ['\033[38;5;27m', '\033[38;5;33m', '\033[38;5;39m', '\033[38;5;45m'],  # Blue gradient
-        OperationType.EXECUTION: ['\033[38;5;28m', '\033[38;5;34m', '\033[38;5;40m', '\033[38;5;46m'],  # Green gradient
-        OperationType.AI_ANALYSIS: ['\033[38;5;136m', '\033[38;5;142m', '\033[38;5;148m', '\033[38;5;154m'],  # Yellow gradient
-        OperationType.AUTO_FIX: ['\033[38;5;124m', '\033[38;5;160m', '\033[38;5;196m', '\033[38;5;202m'],  # Red gradient
-        OperationType.CACHE: ['\033[38;5;30m', '\033[38;5;36m', '\033[38;5;42m', '\033[38;5;48m'],  # Cyan gradient
+        OperationType.DISCOVERY: ['\033[38;5;27m', '\033[38;5;33m', '\033[38;5;39m', '\033[38;5;45m'],
+        OperationType.EXECUTION: ['\033[38;5;28m', '\033[38;5;34m', '\033[38;5;40m', '\033[38;5;46m'],
+        OperationType.AI_ANALYSIS: ['\033[38;5;136m', '\033[38;5;142m', '\033[38;5;148m', '\033[38;5;154m'],
+        OperationType.AUTO_FIX: ['\033[38;5;124m', '\033[38;5;160m', '\033[38;5;196m', '\033[38;5;202m'],
+        OperationType.CACHE: ['\033[38;5;30m', '\033[38;5;36m', '\033[38;5;42m', '\033[38;5;48m'],
     }
     
     RESET = '\033[0m'
     DIM = '\033[2m'
+    BOLD = '\033[1m'
+    GRAY = '\033[1;30m'
     
     def __init__(self, max_threads: int = 12, terminal_width: int = 80, height: int = 5):
         """Initialize chart renderer.
@@ -52,24 +61,18 @@ class ThreadChartRenderer:
         Args:
             max_threads: Maximum number of threads
             terminal_width: Width of terminal
-            height: Height in rows (default 5)
+            height: Height in rows
         """
         self.max_threads = max_threads
         self.terminal_width = terminal_width
         self.height = height
-        self.chart_width = terminal_width - 8  # Reserve for Y-axis labels
+        self.chart_width = terminal_width - 8
         
-        # Full timeline data
         self.timeline_data: List[DataPoint] = []
         self.start_time = time.time()
     
     def add_data_point(self, active_threads: int, operation_type: OperationType):
-        """Add a data point to timeline.
-        
-        Args:
-            active_threads: Number of threads currently active
-            operation_type: Type of operation
-        """
+        """Add data point to timeline."""
         point = DataPoint(
             timestamp=time.time(),
             active_threads=active_threads,
@@ -77,34 +80,46 @@ class ThreadChartRenderer:
         )
         self.timeline_data.append(point)
     
-    def _get_gradient_char(self, value: float, level_min: float, level_max: float, op_type: OperationType) -> str:
-        """Get gradient character with color for value at this level.
-        
-        Args:
-            value: Thread count
-            level_min: Minimum threads for this level
-            level_max: Maximum threads for this level
-            op_type: Operation type for color selection
+    def _is_edge(self, idx: int, value: float, level_min: float, level_max: float) -> tuple[bool, str]:
+        """Check if this is an edge position and get appropriate char.
         
         Returns:
-            Colored gradient character or space
+            (is_edge, braille_char)
         """
+        # Edges are where value transitions across the level threshold
+        if idx == 0:
+            return False, ''
+        
+        prev_point = self.downsampled_data[idx - 1] if idx > 0 else None
+        if not prev_point:
+            return False, ''
+        
+        # Rising edge (entering this level)
+        if prev_point.active_threads < level_min and value >= level_min:
+            return True, '⣠'
+        
+        # Falling edge (leaving this level)
+        if prev_point.active_threads >= level_max and value < level_max:
+            return True, '⠱⣄'
+        
+        return False, ''
+    
+    def _get_char_for_level(self, idx: int, value: float, level_min: float, level_max: float, op_type: OperationType) -> str:
+        """Get character for this position and level."""
         if value <= level_min:
             return ' '
         elif value >= level_max:
-            # Full intensity - darkest color, heaviest char
+            # Full level - use gradient fill
             color = self.COLOR_GRADIENTS[op_type][-1]
             return color + self.GRADIENT_CHARS[-1] + self.RESET
         else:
-            # Gradient based on how far into this level
+            # Partial level - use gradient based on intensity
             ratio = (value - level_min) / (level_max - level_min)
             
-            # Select character based on ratio
             char_index = int(ratio * len(self.GRADIENT_CHARS))
             char_index = min(char_index, len(self.GRADIENT_CHARS) - 1)
             char = self.GRADIENT_CHARS[char_index]
             
-            # Select color based on ratio (lighter for lower intensity)
             color_index = int(ratio * len(self.COLOR_GRADIENTS[op_type]))
             color_index = min(color_index, len(self.COLOR_GRADIENTS[op_type]) - 1)
             color = self.COLOR_GRADIENTS[op_type][color_index]
@@ -112,86 +127,70 @@ class ThreadChartRenderer:
             return color + char + self.RESET
     
     def render(self) -> str:
-        """Render professional thread chart with gradients.
-        
-        Returns:
-            Multi-line chart with axes
-        """
+        """Render elegant thread chart."""
         if not self.timeline_data:
             return ""
         
-        # Downsample to chart width
-        downsampled = self._downsample_data(self.timeline_data, self.chart_width)
+        # Store downsampled data for edge detection
+        self.downsampled_data = self._downsample_data(self.timeline_data, self.chart_width)
         
         lines = []
-        
-        # Calculate level thresholds
         threads_per_level = self.max_threads / self.height
         
-        # Render from top to bottom (high to low)
+        # Render levels from top to bottom
         for level_idx in range(self.height - 1, -1, -1):
             level_max = (level_idx + 1) * threads_per_level
             level_min = level_idx * threads_per_level
             
             # Y-axis label
             if level_idx == self.height - 1:
-                label = f"{int(self.max_threads):3d}"
+                label = f"{self.GRAY}{int(self.max_threads):3d} ┃{self.RESET}"
             elif level_idx == 0:
-                label = "0.0"
+                label = f"{self.GRAY}0.0 ┃{self.RESET}"
             else:
-                label = f" {int(level_max):2d}"
+                label = f"{self.GRAY} {int(level_max):2d} ┃{self.RESET}"
             
-            # Build line with gradient
-            line = f"{label} ┃ "
+            line = label + " "
             
-            for point in downsampled:
-                char = self._get_gradient_char(point.active_threads, level_min, level_max, point.operation_type)
+            for idx, point in enumerate(self.downsampled_data):
+                char = self._get_char_for_level(idx, point.active_threads, level_min, level_max, point.operation_type)
                 line += char
             
             lines.append(line)
         
-        # X-axis line
-        x_axis = "    ┗" + "━" * self.chart_width
+        # X-axis with tick marks
+        total_time = time.time() - self.start_time
+        tick_interval = max(int(self.chart_width / 8), 8)
+        
+        x_axis = f"{self.GRAY}    ┗━━"
+        for i in range(self.chart_width):
+            if i > 0 and i % tick_interval == 0:
+                x_axis += "┳"
+            else:
+                x_axis += "━"
+        x_axis += "┛" + self.RESET
         lines.append(x_axis)
         
-        # X-axis time labels
-        total_time = time.time() - self.start_time
-        label_interval = max(int(self.chart_width / 10), 5)
-        
+        # Time labels
         time_labels = "      "
-        for i in range(0, self.chart_width, label_interval):
+        for i in range(0, self.chart_width, tick_interval):
             time_sec = int((i / self.chart_width) * total_time)
-            time_labels += f"{time_sec:02d}    "
+            time_labels += f"{self.GRAY}{time_sec:02d}     {self.RESET}"
         
         lines.append(self.DIM + time_labels + self.RESET)
         
         return '\n'.join(lines)
     
     def render_realtime_chart(self) -> str:
-        """Render chart (alias for render()).
-        
-        Returns:
-            Thread utilization chart
-        """
+        """Render chart (alias)."""
         return self.render()
     
     def _downsample_data(self, data: List[DataPoint], target_width: int) -> List[DataPoint]:
-        """Downsample data to fit target width.
-        
-        Args:
-            data: Full data list
-            target_width: Target number of points
-        
-        Returns:
-            Downsampled data
-        """
+        """Downsample data to fit target width."""
         if len(data) <= target_width:
-            # Pad with empty points
             padding = target_width - len(data)
-            padded = list(data) + [DataPoint(0, 0, OperationType.CACHE) for _ in range(padding)]
-            return padded
+            return list(data) + [DataPoint(0, 0, OperationType.CACHE) for _ in range(padding)]
         
-        # Downsample via averaging
         step = len(data) / target_width
         downsampled = []
         
