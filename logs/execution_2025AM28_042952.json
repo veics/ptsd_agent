@@ -1,0 +1,215 @@
+{
+  "timestamp": "2025-12-28T04:29:52.667693",
+  "summary": {
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "total": 0,
+    "pass_rate": 0.0,
+    "duration": 0.2165989875793457,
+    "component_count": 20
+  },
+  "components": {
+    "architecture": {
+      "name": "architecture",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "contracts": {
+      "name": "contracts",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "acl": {
+      "name": "acl",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "rag_core": {
+      "name": "rag_core",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "identity_mapping": {
+      "name": "identity_mapping",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "profile": {
+      "name": "profile",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "dataset_builder": {
+      "name": "dataset_builder",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "training_orchestrator": {
+      "name": "training_orchestrator",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "cdn": {
+      "name": "cdn",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "search_engine": {
+      "name": "search_engine",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "confluence_ingestor": {
+      "name": "confluence_ingestor",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "jira_ingestor": {
+      "name": "jira_ingestor",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "slack_bot": {
+      "name": "slack_bot",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "admin_ui_core": {
+      "name": "admin_ui_core",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "admin_ui_users": {
+      "name": "admin_ui_users",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "admin_ui_ingestion": {
+      "name": "admin_ui_ingestion",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "user_ui_search": {
+      "name": "user_ui_search",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "mcp_protocol": {
+      "name": "mcp_protocol",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "neural_agents": {
+      "name": "neural_agents",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    },
+    "synthesizer_agents": {
+      "name": "synthesizer_agents",
+      "passed": 0,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "coverage": -1.0,
+      "duration": 0.0,
+      "pass_rate": 0.0
+    }
+  }
+}
