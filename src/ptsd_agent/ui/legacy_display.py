@@ -691,44 +691,23 @@ class ProgressiveDisplay:
         if self.thread_chart_enabled and self.thread_chart:
             try:
                 # Capture current thread state from pool (if available)
-                ops_by_type = {}
                 if hasattr(self, 'thread_pool') and self.thread_pool:
                     # Get active operations by type
+                    ops_by_type = {}
                     with self.thread_pool.active_lock:
                         for op in self.thread_pool.active_operations.values():
                             op_type = op.operation_type
                             ops_by_type[op_type] = ops_by_type.get(op_type, 0) + 1
                     
-                    # DEBUG: Show what we captured
-                    import sys
-                    if ops_by_type:
-                        print(f"[POOL DATA] Captured: {ops_by_type}", file=sys.stderr, flush=True)
-                else:
-                    # DEBUG: Show thread_pool status
-                    import sys
-                    has_pool = hasattr(self, 'thread_pool')
-                    print(f"[POOL DEBUG] has_thread_pool={has_pool}, pool={getattr(self, 'thread_pool', None)}", file=sys.stderr, flush=True)
-                    
-                    # FALLBACK: Add test data so we see SOMETHING
-                    from ptsd_agent.ui.thread_chart import OperationType
-                    ops_by_type = {
-                        OperationType.EXECUTION: 3,
-                        OperationType.DISCOVERY: 2,
-                    }
-                    print(f"[FALLBACK] Using test data: {ops_by_type}", file=sys.stderr, flush=True)
-                
-                # Add current state to chart
-                self.thread_chart.add_data_point(ops_by_type)
+                    # Add current state to chart
+                    self.thread_chart.add_data_point(ops_by_type)
                 
                 # Render the chart
                 chart_output = self.thread_chart.render()
                 if chart_output:
                     self.add_line(chart_output)
-            except Exception as e:
-                import sys
-                print(f"\n[CHART ERROR] {type(e).__name__}: {e}", file=sys.stderr, flush=True)
-                import traceback
-                traceback.print_exc(file=sys.stderr)
+            except Exception:
+                pass  # Silently fail if chart has issues
         
         # Use BottomBar component for blinking support
         bar = self._bottom_bar.render(

@@ -36,17 +36,8 @@ class ThreadChartRenderer:
     
     # Braille characters
     FULL_BLOCK = '⣿'  # Dense 8-dot block
+    EDGE_CHAR = '⣸'  # Crisp edge (partial dots)
     SPARSE_CHARS = '⠊⠑⠒⠱⠴⠳'  # For prominent curve
-    
-    # 5x5 Look-Up Table for smooth edge transitions
-    # Maps [Left_Height (0-4)][Right_Height (0-4)] to perfect Braille char
-    LUT = [
-        ['⠀', '⢀', '⢠', '⢰', '⢸'],  # 0: Empty start
-        ['⡀', '⣀', '⣠', '⣰', '⣸'],  # 1: 1/4 start
-        ['⡄', '⣄', '⣤', '⣴', '⣼'],  # 2: 1/2 start
-        ['⡆', '⣆', '⣦', '⣶', '⣾'],  # 3: 3/4 start
-        ['⡇', '⣇', '⣧', '⣷', '⣿']   # 4: Full start
-    ]
     
     # Colors
     YELLOW = '\033[38;5;180m'  # Prominent curve color
@@ -65,23 +56,14 @@ class ThreadChartRenderer:
     
     # Curve spacing removed - not needed for new design
     
-    def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 5, use_advanced_lut: bool = False):
-        """Initialize chart renderer.
-        
-        Args:
-            max_threads: Maximum thread count
-            terminal_width: Terminal width (auto-detect if None)
-            height: Number of vertical levels to display
-            use_advanced_lut: If True, use full LUT for operations (slower, smoother) DEFAULT
-                            If False, use LUT only for curve (faster, good enough)
-        """
+    def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 5):
+        """Initialize chart renderer."""
         if terminal_width is None:
             import shutil
             terminal_width = shutil.get_terminal_size().columns
         self.max_threads = max_threads
         self.terminal_width = terminal_width
         self.height = height
-        self.use_advanced_lut = use_advanced_lut  # Toggle LUT mode
         # Y-axis: "  12 ┃" = 5 chars
         self.chart_width = terminal_width - 5
         
@@ -110,22 +92,6 @@ class ThreadChartRenderer:
     
     def add_data_point(self, operations: Dict[OperationType, int]):
         """Add data point."""
-        # FILE DEBUG - WILL persist
-        with open("/tmp/chart_debug.log", "a") as f:
-            f.write(f"add_data_point called: ops={operations}\n")
-            f.flush()
-        
-        # FORCE INJECT sample data if empty
-        if not operations or sum(operations.values()) == 0:
-            import random
-            operations = {
-                OperationType.EXECUTION: random.randint(2, 5),
-                OperationType.DISCOVERY: random.randint(1, 3),
-            }
-            with open("/tmp/chart_debug.log", "a") as f:
-                f.write(f"  -> INJECTED: {operations}\n")
-                f.flush()
-        
         point = DataPoint(
             timestamp=time.time(),
             operations=operations
@@ -181,60 +147,16 @@ class ThreadChartRenderer:
         
         return None
     
-    def _get_lut_char(self, y1: float, y2: float, row_bottom: int, row_top: int) -> str:
-        """Get perfect Braille character using LUT for smooth edges.
-        
-        Args:
-            y1: Height of left point (in sub-dots, 0 to max_threads*4)
-            y2: Height of right point (in sub-dots, 0 to max_threads*4)
-            row_bottom: Bottom of current row in sub-dots (row * 4)
-            row_top: Top of current row in sub-dots ((row + 1) * 4)
-        
-        Returns:
-            Perfect Braille character from LUT
-        """
-        # Case A: Fully Below this row (Empty)
-        if y1 < row_bottom and y2 < row_bottom:
-            return self.LUT[0][0]  # Empty
-        
-        # Case B: Fully Above this row (Full Block)
-        if y1 >= row_top and y2 >= row_top:
-            return self.FULL_BLOCK
-        
-        # Case C: The "Edge" - line passes through this cell
-        # Map y1 and y2 to 0-4 relative to this row
-        # Clamp values to 0-4 range for LUT index
-        local_y1 = int(max(0, min(4, y1 - row_bottom)))
-        local_y2 = int(max(0, min(4, y2 - row_bottom)))
-        
-        return self.LUT[local_y1][local_y2]
     
     def render(self) -> str:
         """Render chart with finalized design: yellow curve, colored blocks, crisp edges."""
-        with open("/tmp/chart_debug.log", "a") as f:
-            f.write(f"\n=== render() CALLED: timeline={len(self.timeline_data)} points ===\n")
-            f.flush()
-        
         if not self.timeline_data:
-            with open("/tmp/chart_debug.log", "a") as f:
-                f.write("EARLY RETURN: no timeline_data\n")
-                f.flush()
             return ""
         
         # Downsample to fit chart width
         self.downsampled_data = self._downsample_data(self.timeline_data, self.chart_width)
         
-        with open("/tmp/chart_debug.log", "a") as f:
-            f.write(f"Downsampled: {len(self.downsampled_data)} points (from {len(self.timeline_data)})\n")
-            if self.downsampled_data:
-                totals = [p.total_threads for p in self.downsampled_data[:5]]
-                f.write(f"First 5 totals: {totals}\n")
-            f.flush()
-        
         if not self.downsampled_data:
-            with open("/tmp/chart_debug.log", "a") as f:
-                f.write("EARLY RETURN: no downsampled_data\n")
-                f.flush()
             return ""
         
         self.frame_count += 1  # For blinking effect
@@ -279,89 +201,33 @@ class ThreadChartRenderer:
                     line += " "
                     continue
                 
-                # TOP LEVEL - CONTINUOUS YELLOW CURVE with LUT smoothing
+                # TOP LEVEL - CONTINUOUS YELLOW CURVE
                 if level_idx == 0:
-                    if i == 0:
-                        # First column: use sparse character
-                        sparse_char = self.SPARSE_CHARS[0]
-                        if total > 0:
-                            line += self.YELLOW + sparse_char + self.RESET
-                        else:
-                            line += " "
+                    sparse_char = self.SPARSE_CHARS[i % len(self.SPARSE_CHARS)]
+                    if total > 0:
+                        line += self.YELLOW + sparse_char + self.RESET
                     else:
-                        # Use LUT for smooth curve transitions
-                        prev_total = self.downsampled_data[i-1].total_threads
-                        curr_total = total
-                        
-                        # Normalize to sub-dot resolution (0 to max_threads * 4)
-                        y1 = (prev_total / self.max_threads) * self.height * 4
-                        y2 = (curr_total / self.max_threads) * self.height * 4
-                        
-                        # Top row covers height range [(height-1)*4, height*4]
-                        row_bottom = (self.height - 1) * 4
-                        row_top = self.height * 4
-                        
-                        # Get smooth LUT character
-                        char = self._get_lut_char(y1, y2, row_bottom, row_top)
-                        if char != self.LUT[0][0]:  # Not empty
-                            line += self.YELLOW + char + self.RESET
-                        else:
-                            line += " "
+                        line += " "
                 else:
-                    # OPERATION BLOCKS - Use LUT if advanced mode enabled
-                    if self.use_advanced_lut and i > 0:
-                        # OPTION B: Full LUT for operations (smooth but complex)
-                        # Calculate exact operation heights for this and previous column
-                        prev_point = self.downsampled_data[i-1]
-                        curr_point = point
+                    # Get color for this level
+                    color, op = get_operation_color(point.operations, level)
+                    
+                    if color:
+                        # Check for crisp edge (operation transition)
+                        prev_color, prev_op = None, None
+                        if i > 0:
+                            prev_color, prev_op = get_operation_color(
+                                self.downsampled_data[i-1].operations, level
+                            )
                         
-                        # Find which operation(s) occupy this level
-                        color, op = get_operation_color(curr_point.operations, level)
-                        prev_color, prev_op = get_operation_color(prev_point.operations, level)
-                        
-                        if color:
-                            # Calculate sub-dot heights for current level
-                            # Each level is 4 sub-dots tall
-                            level_idx_from_bottom = levels.index(level)
-                            row_bottom = level_idx_from_bottom * 4
-                            row_top = (level_idx_from_bottom + 1) * 4
-                            
-                            # Normalize operation totals to sub-dot scale
-                            prev_total = prev_point.total_threads
-                            curr_total = curr_point.total_threads
-                            y1 = (prev_total / self.max_threads) * len(levels) * 4
-                            y2 = (curr_total / self.max_threads) * len(levels) * 4
-                            
-                            # Get LUT character for smooth transition
-                            char = self._get_lut_char(y1, y2, row_bottom, row_top)
-                            
-                            # Apply operation color to LUT character
-                            if char != self.LUT[0][0]:  # Not empty
-                                line += color + char + self.RESET
-                            else:
-                                line += " "
+                        # Crisp edge at transition
+                        if prev_op and prev_op != op:
+                            line += color + self.EDGE_CHAR + self.RESET
                         else:
-                            line += " "
+                            # Full block
+                            line += color + self.FULL_BLOCK + self.RESET
                     else:
-                        # OPTION A: Simple block mode (default, fast)
-                        color, op = get_operation_color(point.operations, level)
-                        
-                        if color:
-                            # Check for crisp edge (operation transition)
-                            prev_color, prev_op = None, None
-                            if i > 0:
-                                prev_color, prev_op = get_operation_color(
-                                    self.downsampled_data[i-1].operations, level
-                                )
-                            
-                            # Crisp edge at transition - use consistent LUT edge char
-                            if prev_op and prev_op != op:
-                                line += color + self.LUT[1][4] + self.RESET  # '⣸' crisp edge
-                            else:
-                                # Full block
-                                line += color + self.FULL_BLOCK + self.RESET
-                        else:
-                            line += " "
+                        line += " "
             
             lines.append(line)
         
