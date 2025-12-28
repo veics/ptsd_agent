@@ -36,6 +36,18 @@ class ProgressiveDisplay:
         """
         # Update terminal width
         self.term_width = max(self.MIN_TERM_WIDTH, new_size[0])
+        
+        # Clear the display buffer to prevent corruption
+        # The next render() call will draw with the new width
+        if self.last_line_count > 0:
+            # Move cursor up and clear all previously rendered lines
+            sys.stdout.write(f"\033[{self.last_line_count}A")
+            for _ in range(self.last_line_count):
+                sys.stdout.write("\033[2K\033[B")
+            sys.stdout.write(f"\033[{self.last_line_count}A")
+            sys.stdout.flush()
+            # Reset line count - next render will update it
+            self.last_line_count = 0
     
     def get_status_color(self, pct):
         """Color based on progress using theme thresholds."""
