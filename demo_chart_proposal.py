@@ -79,7 +79,7 @@ def main():
                     line += " "
                     continue
                 
-                # Stack colors bottom-up
+                # Stack colors bottom-up - EACH BLOCK WITH ITS COLOR PER TYPE!
                 cumulative = 0
                 drawn = False
                 
@@ -91,8 +91,9 @@ def main():
                         top = cumulative + count
                         cumulative += count
                         
+                        # THIS BLOCK BELONGS TO THIS OPERATION - USE ITS COLOR!
                         if top >= level and bottom < level:
-                            line += color + BLOCK + RESET
+                            line += color + BLOCK + RESET  # Colored by operation type!
                             drawn = True
                             break
                 
@@ -101,7 +102,7 @@ def main():
             
             print(line)
         
-        # Pip-style timeline
+        # Pip-style timeline with BLINKING (alternates between colored and grey)
         import shutil
         tw = shutil.get_terminal_size().columns
         
@@ -114,12 +115,15 @@ def main():
         
         tl = f"{GRAY}    ┗━━{RESET}"
         
-        # Colored progress + faded last
+        # Colored progress
         for i in range(frame + 1):
             if i < last_idx:
+                # Solid colored progress
                 tl += f"{GREEN}━{RESET}"
             elif i == last_idx:
-                tl += f"{FADED_GREEN}━{RESET}"  # Blinking last char
+                # BLINK between GREEN or GREY (alternates each frame)
+                blink_color = GREEN if frame % 2 == 0 else GRAY
+                tl += f"{blink_color}━{RESET}"
         
         # Gap + grey to end
         tl += " "
@@ -133,7 +137,7 @@ def main():
         print(tl)
         
         sys.stdout.flush()
-        time.sleep(0.15)
+        time.sleep(0.2)  # Slightly slower to see blink
     
     print("\n" + "="*80)
     print("  ✓ Animation complete!")
