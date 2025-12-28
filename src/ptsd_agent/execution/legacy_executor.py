@@ -9,6 +9,7 @@ import ast
 from typing import Dict, List, Optional
 from pathlib import Path
 from .metrics.collector import MetricsCollector, TestResult
+from ..discovery.fast_counter import FastTestCounter  # NEW: Phase 2
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,8 @@ class TestExecutor:
         self.run_id = run_id
         self._error_buffer: List[str] = []  # Capture error output for debugging
         self._coverage_files: Dict[str, str] = {}  # Track coverage files per component
+        self._discovery_cache: Dict[str, Dict] = {}  # NEW: Cache discovery results (Phase 2)
+        self._fast_counter = FastTestCounter()  # NEW: Fast test counting (Phase 2)
     
     def get_error_buffer(self) -> List[str]:
         """Get captured error output from the last test run."""
@@ -144,14 +147,19 @@ class TestExecutor:
             # No tests - path doesn't exist or was not specified, just return 0
             return 0
         
-        # Discover tests first
-        tests, error_msg = self._discover_tests(test_path, pythonpath=pythonpath)
-        if not tests:
-            # No tests discovered - just return 0, don't create fake test entries
-            return 0
-        
-        # Store discovered count for accurate progress calculation during execution
-        self.collector.set_discovered_total(component_name, len(tests))
+        # Phase 2 optimization: Use cached discovery if available
+        if component_name in self._discovery_cache:
+            cached = self._discovery_cache[component_name]
+            # Already set during discover_all_components, just use the cached count
+            logger.debug(f"Using cached discovery for {component_name}: ~{cached['tests']} tests")
+        else:
+            # Fallback: Run discovery if not cached (shouldn't happen in normal flow)
+            tests, error_msg = self._discover_tests(test_path, pythonpath=pythonpath)
+            if not tests:
+                # No tests discovered - just return 0
+                return 0
+            # Store discovered count for accurate progress calculation
+            self.collector.set_discovered_total(component_name, len(tests))
         
         # Run pytest with verbose output
         return self._run_pytest(component_name, test_path, pythonpath=pythonpath, callback=callback)
