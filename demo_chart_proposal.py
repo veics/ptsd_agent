@@ -75,7 +75,7 @@ def main():
         {'cache': 1},
     ]
     
-    levels = [12, 6, 3, 1]
+    levels = [12, 9, 6, 3, 1]  # 5 levels!
     
     # Animation loop
     for frame in range(len(timeline)):
@@ -108,17 +108,29 @@ def main():
                 # Get color for this level
                 color, op = get_operation_color(point, level)
                 
-                if level_idx == 0 and total >= level:
-                    # TOP LEVEL - Prominent curve/edge
-                    # Use sparse chars for peaks
-                    edge_char = SPARSE_CHARS[i % len(SPARSE_CHARS)]
+                if level_idx == 0:
+                    # TOP LEVEL - Prominent curve CONTINUOUS!
+                    # Show for ALL points, not just peaks
+                    sparse_char = SPARSE_CHARS[i % len(SPARSE_CHARS)]
                     if color:
-                        line += color + edge_char + RESET
+                        line += color + sparse_char + RESET
+                    elif total > 0:  # Show grey if no color but has data
+                        line += GRAY + sparse_char + RESET
                     else:
                         line += " "
                 elif color:
-                    # FILLED LEVELS - Full colored blocks
-                    line += color + FULL_BLOCK + RESET
+                    # Check for crisp edges at operation transitions
+                    prev_color, prev_op = None, None
+                    if i > 0:
+                        prev_color, prev_op = get_operation_color(timeline[i-1], level)
+                    
+                    # CRISP EDGE - operation changed!
+                    if prev_op and prev_op != op:
+                        edge_char = EDGE_CHARS[0]  # ⣸
+                        line += color + edge_char + RESET
+                    else:
+                        # Full colored block
+                        line += color + FULL_BLOCK + RESET
                 else:
                     line += " "
             
