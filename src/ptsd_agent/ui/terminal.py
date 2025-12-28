@@ -179,6 +179,28 @@ class TerminalManager:
         """
         return self._in_tmux
     
+    def enter_alternate_screen(self) -> None:
+        """Enter alternate screen buffer (like vim, htop).
+        
+        Creates a separate screen buffer for the UI.
+        Original terminal content is preserved and restored on exit.
+        """
+        if self.is_tty:
+            sys.stdout.write("\033[?1049h")  # Enter alternate screen
+            sys.stdout.write("\033[2J\033[H")  # Clear screen and move to home
+            sys.stdout.flush()
+            logger.debug("Entered alternate screen buffer")
+    
+    def exit_alternate_screen(self) -> None:
+        """Exit alternate screen buffer and restore original terminal.
+        
+        Returns to the original terminal state before enter_alternate_screen.
+        """
+        if self.is_tty:
+            sys.stdout.write("\033[?1049l")  # Exit alternate screen
+            sys.stdout.flush()
+            logger.debug("Exited alternate screen buffer")
+    
     def cleanup(self):
         """Clean up resources and restore original signal handlers."""
         if self._original_sigwinch is not None:

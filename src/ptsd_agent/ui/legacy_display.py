@@ -498,12 +498,9 @@ class ProgressiveDisplay:
     
     def build_phase_line(self, phase_id, phase_name, progress_pct=0, current_test=None, mode="running", is_last=False, triangle="expanded", components=None, running_count=0):
         """Phase line: aligns with project tree"""
-        from .theme import UNDERLINE, NO_UNDERLINE
         tree = "└─" if is_last else "├─"
         # Don't add "Phase {id}:" prefix - phase_name already includes it
-        display_name_plain = self._truncate(phase_name, self.term_width // 3)
-        # Apply underline to phase name
-        display_name = f"{UNDERLINE}{display_name_plain}{NO_UNDERLINE}"
+        display_name = self._truncate(phase_name, self.term_width // 3)
         
         # Get phase components for status inheritance
         phase_components = components if components else []
@@ -515,7 +512,7 @@ class ProgressiveDisplay:
             
             # Calculate available width for activity block
             effective_width = self.term_width - 2  # Safety gutter
-            left_visible_len = 1 + 1 + 2 + 1 + len(display_name_plain)  # icon + sp + tree + sp + name
+            left_visible_len = 1 + 1 + 2 + 1 + len(display_name)  # icon + sp + tree + sp + name
             right_total = self.BAR_WIDTH + self.PCT_WIDTH
             min_padding = 2
             available_width = effective_width - left_visible_len - right_total - min_padding - self.MARGIN_RIGHT
@@ -524,7 +521,7 @@ class ProgressiveDisplay:
             middle, middle_width = self._format_activity_block(current_test, max_width=available_width)
             right_width = self.BAR_WIDTH + self.PCT_WIDTH
             left = f"{color}{icon}{RESET} {tree} {display_name}"
-            left_visible = f"{icon} {tree} {display_name_plain}"
+            left_visible = f"{icon} {tree} {display_name}"
         elif mode not in ["running", "completed"]:
             # Phase without active test metrics - show status text
             icon = "○"  # Circle for non-testable phases
@@ -552,19 +549,7 @@ class ProgressiveDisplay:
         active_for_bar = running_count if mode == "running" else 0
         right, right_width = self._format_right_block(progress_pct, mode=mode, triangle=triangle, active_count=active_for_bar)
         
-        # For underlined phase lines, extend underline to fill the line
-        # Calculate how many spaces needed to reach one char before triangle
-        if UNDERLINE in left:  # Check if we're using underline
-            # Calculate total line width
-            total_visible = len(left_visible) + middle_width + right_width
-            # Add spaces under underline to fill until one before triangle
-            spaces_needed = self.term_width - total_visible - 2  # -2 for one space before triangle
-            if spaces_needed > 0:
-                # Re-apply underline with extended spaces
-                # Find the position of NO_UNDERLINE in display_name and insert spaces before it
-                extended_spaces = " " * spaces_needed
-                left = left.replace(NO_UNDERLINE, extended_spaces + NO_UNDERLINE)
-        
+
         # Use margin=0 for tight alignment of metrics next to percentage
         line = self._build_aligned_row(left, len(left_visible), right, right_width, middle, middle_width, margin_right=0, mode=mode)
         self.add_line(line)
