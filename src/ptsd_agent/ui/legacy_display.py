@@ -498,9 +498,12 @@ class ProgressiveDisplay:
     
     def build_phase_line(self, phase_id, phase_name, progress_pct=0, current_test=None, mode="running", is_last=False, triangle="expanded", components=None, running_count=0):
         """Phase line: aligns with project tree"""
+        from .theme import UNDERLINE, NO_UNDERLINE
         tree = "└─" if is_last else "├─"
         # Don't add "Phase {id}:" prefix - phase_name already includes it
-        display_name = self._truncate(phase_name, self.term_width // 3)
+        display_name_plain = self._truncate(phase_name, self.term_width // 3)
+        # Apply underline to phase name
+        display_name = f"{UNDERLINE}{display_name_plain}{NO_UNDERLINE}"
         
         # Get phase components for status inheritance
         phase_components = components if components else []
@@ -512,7 +515,7 @@ class ProgressiveDisplay:
             
             # Calculate available width for activity block
             effective_width = self.term_width - 2  # Safety gutter
-            left_visible_len = 1 + 1 + 2 + 1 + len(display_name)  # icon + sp + tree + sp + name
+            left_visible_len = 1 + 1 + 2 + 1 + len(display_name_plain)  # icon + sp + tree + sp + name
             right_total = self.BAR_WIDTH + self.PCT_WIDTH
             min_padding = 2
             available_width = effective_width - left_visible_len - right_total - min_padding - self.MARGIN_RIGHT
@@ -521,7 +524,7 @@ class ProgressiveDisplay:
             middle, middle_width = self._format_activity_block(current_test, max_width=available_width)
             right_width = self.BAR_WIDTH + self.PCT_WIDTH
             left = f"{color}{icon}{RESET} {tree} {display_name}"
-            left_visible = f"{icon} {tree} {display_name}"
+            left_visible = f"{icon} {tree} {display_name_plain}"
         elif mode not in ["running", "completed"]:
             # Phase without active test metrics - show status text
             icon = "○"  # Circle for non-testable phases
