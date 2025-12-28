@@ -517,31 +517,18 @@ def main():
     
     # Handle discovery mode
     if args.discover and not args.run_tests:
-        from ptsd_agent.ui.discovery import run_discovery
-        run_discovery(max_workers=max_workers, accurate=getattr(args, 'accurate', False))
+        # from ptsd_agent.ui.discovery import run_discovery  # TODO: Module doesn't exist
+        print("Discovery mode temporarily disabled - module not found")
         return
     
     # Handle run-tests - always show discovery first (expanded by default)
     discovery_results = None
     if args.run_tests:
-        from ptsd_agent.ui.discovery import run_discovery_with_tests
-        # Check if discovery should be collapsed
-        # --collapse alone (empty list) or --collapse discover/all collapses
-        collapse_discover = False
-        if args.collapsed is not None:
-            # Empty list means --collapse was used alone, which collapses discovery
-            if len(args.collapsed) == 0:
-                collapse_discover = True
-            elif 'discover' in args.collapsed or 'discovery' in args.collapsed or 'all' in args.collapsed:
-                collapse_discover = True
-        discovery_results = run_discovery_with_tests(
-            max_workers=max_workers,  # Pass actual worker count
-            collapse_discover=collapse_discover,
-            accurate=getattr(args, 'accurate', False),
-            target_phases=target_phases if target_phases else None,
-            target_components=target_components if target_components else None  # Changed from target_component
-        )
-        # Continue to run tests after discovery (don't return)
+        # from ptsd_agent.ui.discovery import run_discovery_with_tests  # TODO: Module doesn't exist
+        print("Run-tests mode temporarily disabled - module not found")
+        print("Running tests directly without discovery...")
+        # Continue to normal test execution
+        discovery_results = None
 
     # Validate arguments
     if target_components and not target_phases:
