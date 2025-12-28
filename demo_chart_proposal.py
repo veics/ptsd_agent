@@ -1,41 +1,42 @@
 #!/usr/bin/env python3
-"""Demo: Vertical stacked colored bars chart design.
+"""Demo: Animated vertical stacked colored bars chart.
 
-Shows the intended design:
-- Each vertical column = one time point
-- Stacked colored blocks from bottom to top
-- Each color = operation type consuming threads
-- Full terminal width
-- Time-based X-axis
+FINAL DESIGN - matches user requirements:
+- Vertical stacked bars (each column = time point)
+- No empty 0.0 line
+- No leading spaces (bars start at left edge)
+- Animated like pip progress bars
+- Pip-style timeline (colored → faded last → gap → grey to terminal width)
 """
 
+import time
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 # ANSI colors
 RESET = '\033[0m'
 GRAY = '\033[38;5;240m'
 BLUE = '\033[38;5;110m'    # Discovery
-GREEN = '\033[38;5;108m'   # Execution
+GREEN = '\033[38;5;108m'   # Execution  
 YELLOW = '\033[38;5;180m'  # AI Analysis
 RED = '\033[38;5;174m'     # Auto-fix
 CYAN = '\033[38;5;109m'    # Cache
+FADED_GREEN = '\033[38;5;65m'  # Faded for blinking last char
 
 # Braille dense block
 BLOCK = '⣿'
 
 
-def render_demo_chart():
-    """Render demo chart with proposed design."""
+def main():
+    """Run animated demo."""
     print("\n" + "="*80)
-    print("  PROPOSED DESIGN: Vertical Stacked Colored Bars")
+    print("  ANIMATED DEMO: Vertical Stacked Colored Bars")
     print("="*80 + "\n")
+    time.sleep(1)
     
-    # Sample data: {time_point: {operation: thread_count}}
-    # START WITH DATA (no empty points at beginning!)
+    # Sample data
     timeline = [
-        {'discovery': 2},  # Start immediately
+        {'discovery': 2},
         {'discovery': 4},
         {'discovery': 6},
         {'discovery': 5, 'execution': 2},
@@ -53,132 +54,94 @@ def render_demo_chart():
         {'fix': 2, 'cache': 2},
         {'cache': 2},
         {'cache': 1},
-        {},  # End with empty
     ]
     
-    max_threads = 12
-    height = 5
-    chart_width = len(timeline)
+    levels = [12, 6, 3, 1]  # Skip 0.0
     
-    # Y-axis levels (log scale would go here)
-    levels = [12, 6, 3, 1, 0]
-    
-    # Render each row from top to bottom
-    for level_idx, level_value in enumerate(levels):
-        # Y-axis label
-        if level_idx == 0:
-            label = f"{GRAY}{level_value:3d} ┃{RESET}"
-        elif level_idx == len(levels) - 1:
-            label = f"{GRAY}0.0 ┃{RESET}"
+    # Animation loop
+    for frame in range(len(timeline)):
+        sys.stdout.write("\033[2J\033[H")  # Clear screen
+        
+        print(f"\n{'='*80}")
+        print(f"  Frame {frame + 1}/{len(timeline)}")
+        print(f"{'='*80}\n")
+        
+        # Render chart rows (NO empty 0.0 line, NO leading spaces)
+        for level in levels:
+            # Y-axis label
+            label = f"{GRAY}{level:3d} ┃{RESET}" if level > 1 else f"{GRAY}  {level} ┃{RESET}"
+            line = label
+            
+            # Render bars up to current frame
+            for i in range(frame + 1):
+                point = timeline[i]
+                if not point:
+                    line += " "
+                    continue
+                
+                # Stack colors bottom-up
+                cumulative = 0
+                drawn = False
+                
+                for op, color in [('discovery', BLUE), ('execution', GREEN),
+                                 ('ai', YELLOW), ('fix', RED), ('cache', CYAN)]:
+                    if op in point:
+                        count = point[op]
+                        bottom = cumulative
+                        top = cumulative + count
+                        cumulative += count
+                        
+                        if top >= level and bottom < level:
+                            line += color + BLOCK + RESET
+                            drawn = True
+                            break
+                
+                if not drawn:
+                    line += " "
+            
+            print(line)
+        
+        # Pip-style timeline
+        import shutil
+        tw = shutil.get_terminal_size().columns
+        
+        # Find last data point
+        last_idx = -1
+        for i in range(frame, -1, -1):
+            if timeline[i]:
+                last_idx = i
+                break
+        
+        tl = f"{GRAY}    ┗━━{RESET}"
+        
+        # Colored progress + faded last
+        for i in range(frame + 1):
+            if i < last_idx:
+                tl += f"{GREEN}━{RESET}"
+            elif i == last_idx:
+                tl += f"{FADED_GREEN}━{RESET}"  # Blinking last char
+        
+        # Gap + grey to end
+        tl += " "
+        vis = 7 + (last_idx + 1 if last_idx >= 0 else 0) + 1
+        remaining = tw - vis - 1
+        if remaining > 0:
+            tl += f"{GRAY}{'━' * remaining}┛{RESET}"
         else:
-            label = f"{GRAY} {level_value:2d} ┃{RESET}"
+            tl += f"{GRAY}┛{RESET}"
         
-        line = label + " "
+        print(tl)
         
-        # Each column - START FROM LEFT, NO GAPS
-        for col_idx, point in enumerate(timeline):
-            if not point:
-                line += " "
-                continue
-            
-            # Calculate total threads at this point
-            total = sum(point.values())
-            
-            # Stack operations from bottom: discovery, execution, ai, fix, cache
-            cumulative = 0
-            char_added = False
-            
-            for op_name, color in [('discovery', BLUE), ('execution', GREEN), 
-                                   ('ai', YELLOW), ('fix', RED), ('cache', CYAN)]:
-                if op_name in point:
-                    thread_count = point[op_name]
-                    op_bottom = cumulative
-                    op_top = cumulative + thread_count
-                    cumulative += thread_count
-                    
-                    # Check if this level intersects with operation's range
-                    # Using log scale for better visibility
-                    if op_top >= level_value and op_bottom < level_value:
-                        line += color + BLOCK + RESET
-                        char_added = True
-                        break
-            
-            if not char_added:
-                line += " "
-        
-        print(line)
+        sys.stdout.flush()
+        time.sleep(0.15)
     
-    # Timeline axis - pip install style with BLINKING last char!
-    # [colored progress] [BLINKING last] [gap] [grey to terminal width]
-    import shutil
-    terminal_width = shutil.get_terminal_size().columns
-    
-    # Find last data point
-    last_data_idx = -1
-    for i in range(len(timeline) - 1, -1, -1):
-        if timeline[i]:
-            last_data_idx = i
-            break
-    
-    # Count visible characters
-    visible_start = "    ┗━━"
-    visible_gap = 1
-    visible_end = 1  # For ┛
-    
-    timeline_line = f"{GRAY}{visible_start}{RESET}"
-    
-    # Colored portion (solid progress)
-    for i in range(len(timeline)):
-        if i < last_data_idx:
-            # Solid colored progress
-            timeline_line += f"{GREEN}━{RESET}"
-        elif i == last_data_idx:
-            # BLINKING last character (washed/faded green ↔ grey)
-            # For demo, show as faded green (in real implementation, this would blink)
-            FADED_GREEN = '\033[38;5;65m'  # Washed out green
-            timeline_line += f"{FADED_GREEN}━{RESET}"  # This would blink with grey in real impl
-        else:
-            # Past data - don't draw anything yet
-            break
-    
-    # VISIBLE GAP (space between progress and grey remainder)
-    timeline_line += " "
-    
-    # Grey extension to terminal width
-    visible_so_far = len(visible_start) + (last_data_idx + 1) + visible_gap
-    remaining = terminal_width - visible_so_far - visible_end
-    
-    if remaining > 0:
-        timeline_line += f"{GRAY}{'━' * remaining}┛{RESET}"
-    else:
-        timeline_line += f"{GRAY}┛{RESET}"
-    
-    print(timeline_line)
-    
-    # Time labels (showing seconds)
-    time_labels = "      "
-    for i in range(0, len(timeline), max(len(timeline) // 8, 1)):
-        # Simulate time in seconds
-        time_sec = i * 7  # ~7 seconds per point in this demo
-        time_labels += f"{GRAY}{time_sec:02d}     {RESET}"
-    print(time_labels)
-    
-    print("\n" + "─"*80)
-    print(f"  {BLUE}⣿{RESET} Discovery   {GREEN}⣿{RESET} Execution   {YELLOW}⣿{RESET} AI Analysis   {RED}⣿{RESET} Auto-fix   {CYAN}⣿{RESET} Cache")
-    print("  Vertical bars = Stacked operations at each time point")
-    print("─"*80 + "\n")
+    print("\n" + "="*80)
+    print("  ✓ Animation complete!")
+    print("="*80 + "\n")
 
 
 if __name__ == "__main__":
-    print("\n🎨 CHART DESIGN PROPOSAL\n")
-    render_demo_chart()
-    print("\nKEY FEATURES:")
-    print("  ✓ Vertical colored bars (each column = one time point)")
-    print("  ✓ Stacked colors (bottom to top: Blue → Green → Yellow → Red → Cyan)")
-    print("  ✓ Full terminal width")
-    print("  ✓ Time-based X-axis (seconds)")
-    print("  ✓ NO dotted baseline")
-    print("  ✓ Each color = operation type consuming threads")
-    print("\n" + "="*80)
-    print("  Does this match your vision? (Run: python demo_chart_proposal.py)")
-    print("="*80 + "\n")
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\nDemo interrupted. Goodbye! 👋\n")
