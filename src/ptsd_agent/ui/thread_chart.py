@@ -159,14 +159,6 @@ class ThreadChartRenderer:
         if not self.downsampled_data:
             return ""
         
-        # Ensure chart extends to fill terminal width
-        # Pad with empty data points if needed
-        while len(self.downsampled_data) < self.chart_width:
-            self.downsampled_data.append(DataPoint(
-                timestamp=time.time(),
-                operations={}
-            ))
-        
         self.frame_count += 1  # For blinking effect
         
         lines = []
