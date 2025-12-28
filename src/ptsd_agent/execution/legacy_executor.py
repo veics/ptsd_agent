@@ -33,8 +33,9 @@ class TestExecutor:
     """Executes tests and streams real-time metrics to the collector"""
     
     def __init__(self, collector: MetricsCollector, coverage_temp_dir: str = None, 
-                 coverage_storage_dir: str = None, run_id: str = None):
+                 coverage_storage_dir: str = None, run_id: str = None, thread_pool=None):
         self.collector = collector
+        self.thread_pool = thread_pool  # NEW: Thread pool for operations
         import tempfile
         self.coverage_temp_dir = coverage_temp_dir or tempfile.gettempdir()
         self.coverage_storage_dir = coverage_storage_dir
