@@ -1236,7 +1236,7 @@ def main():
         
         # Save to history (both JSON and SQLite)
         history_run_id = history.save_run(run_state, file_details=file_details)
-        log_mgr.debug(f"Saved run history: {history_run_id}")
+        # log_mgr.debug(f"Saved run history: {history_run_id}")  # TODO: log_mgr not initialized
         
         # Aggregate coverage if enabled
         # TODO: Re-enable once coverage_aggregator.py is implemented
