@@ -511,7 +511,26 @@ class ProgressiveDisplay:
         """Component line: leaf node"""
         phase_continue = " " if is_last_phase else "│"
         tree = "└─" if is_last_comp else "├─"
-        display_name = self._truncate(comp_name, self.term_width // 4)
+        
+        # Get component stats for inline display
+        comp = self.collector.get_component(comp_name) if self.collector else None
+        file_count = comp.file_count if comp else 0
+        test_count = comp.test_file_count or comp.discovered_total if comp else 0
+        
+        # Build inline stats suffix for component name when running
+        stats_suffix = ""
+        if mode == "running" and (file_count > 0 or test_count > 0):
+            parts = []
+            if file_count > 0:
+                parts.append(f"{file_count} file{'s' if file_count != 1 else ''}")
+            if test_count > 0:
+                parts.append(f"{test_count} test{'s' if test_count != 1 else ''}")
+            if parts:
+                stats_suffix = f": {' '.join(parts)}"
+        
+        # Combine component name with stats
+        display_name_with_stats = f"{comp_name}{stats_suffix}"
+        display_name = self._truncate(display_name_with_stats, self.term_width // 3)
         
         # Unified logic: prepare components based on mode
         # Check if we should show a status string instead of metrics

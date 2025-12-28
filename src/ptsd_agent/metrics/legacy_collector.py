@@ -22,6 +22,8 @@ class ComponentMetrics:
     coverage: float = -1.0  # -1 = n/a (not applicable, e.g. YAML files)
     duration: float = 0.0
     discovered_total: int = 0  # Set before tests run, for progress calculation
+    file_count: int = 0  # Number of test files in component
+    test_file_count: int = 0  # Total test count from file scanning
     tests: List[TestResult] = field(default_factory=list)
     
     # NEW: Detailed diagnostic information for --show-logs and Phase Overview
@@ -89,6 +91,13 @@ class MetricsCollector:
         """Set warning count from pytest output"""
         comp = self.get_component(component_name)
         comp.warnings = count
+
+    def set_file_stats(self, component_name: str, file_count: int, test_count: int = 0):
+        """Set file and test count statistics for component"""
+        comp = self.get_component(component_name)
+        comp.file_count = file_count
+        if test_count > 0:
+            comp.test_file_count = test_count
 
     def get_summary(self) -> Dict:
         total_passed = sum(c.passed for c in self.components.values())
