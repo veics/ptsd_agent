@@ -34,15 +34,19 @@ class DataPoint:
 class ThreadChartRenderer:
     """Version 1: Spaced curve above bands."""
     
-    # Braille characters
-    FULL_BLOCK = '⣿'  # Dense 8-dot block
-    EDGE_CHAR = '⣸'  # Crisp edge (partial dots)
-    SPARSE_CHARS = '⠊⠑⠒⠱⠴⠳'  # For prominent curve
+    # Braille characters - SIMPLIFIED for reference match
+    FULL_BLOCK = '⣿'  # Dense block for fill
+    DOT_CHAR = '⠿'     # Prominent dot for the orange line on top
     
-    # Colors
-    YELLOW = '\033[38;5;180m'  # Prominent curve color
+    # Colors - MATCH REFERENCE IMAGE
+    ORANGE = '\033[38;5;214m'  # Bright orange for top curve
+    YELLOW = '\033[38;5;220m'  # Alternative yellow
+    CYAN = '\033[38;5;45m'     # Bright cyan for fill
+    BLUE = '\033[38;5;33m'     # Blue for fill  
     GREEN = '\033[38;5;108m'   # Timeline progress
     FADED_GREEN = '\033[38;5;65m'  # Blinking timeline
+    
+    # Operation colors
     FG_COLORS = {
         OperationType.DISCOVERY: '\033[38;5;110m',    # Blue
         OperationType.EXECUTION: '\033[38;5;108m',    # Green  
@@ -201,11 +205,11 @@ class ThreadChartRenderer:
                     line += " "
                     continue
                 
-                # TOP LEVEL - CONTINUOUS YELLOW CURVE
+                # TOP LEVEL - ORANGE DOTTED LINE (like reference image!)
                 if level_idx == 0:
-                    sparse_char = self.SPARSE_CHARS[i % len(self.SPARSE_CHARS)]
                     if total > 0:
-                        line += self.YELLOW + sparse_char + self.RESET
+                        # Use prominent dot character - ORANGE like reference
+                        line += self.ORANGE + self.DOT_CHAR + self.RESET
                     else:
                         line += " "
                 else:
