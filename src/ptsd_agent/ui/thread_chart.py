@@ -211,13 +211,30 @@ class ThreadChartRenderer:
     
     def render(self) -> str:
         """Render chart with finalized design: yellow curve, colored blocks, crisp edges."""
+        with open("/tmp/chart_debug.log", "a") as f:
+            f.write(f"\n=== render() CALLED: timeline={len(self.timeline_data)} points ===\n")
+            f.flush()
+        
         if not self.timeline_data:
+            with open("/tmp/chart_debug.log", "a") as f:
+                f.write("EARLY RETURN: no timeline_data\n")
+                f.flush()
             return ""
         
         # Downsample to fit chart width
         self.downsampled_data = self._downsample_data(self.timeline_data, self.chart_width)
         
+        with open("/tmp/chart_debug.log", "a") as f:
+            f.write(f"Downsampled: {len(self.downsampled_data)} points (from {len(self.timeline_data)})\n")
+            if self.downsampled_data:
+                totals = [p.total_threads for p in self.downsampled_data[:5]]
+                f.write(f"First 5 totals: {totals}\n")
+            f.flush()
+        
         if not self.downsampled_data:
+            with open("/tmp/chart_debug.log", "a") as f:
+                f.write("EARLY RETURN: no downsampled_data\n")
+                f.flush()
             return ""
         
         self.frame_count += 1  # For blinking effect
