@@ -1,36 +1,55 @@
 #!/usr/bin/env python3
-"""Demo: Animated vertical stacked colored bars chart.
+"""FINAL DESIGN - Braille chart with prominent curve and crisp edges.
 
-FINAL DESIGN - matches user requirements:
-- Vertical stacked bars (each column = time point)
-- No empty 0.0 line
-- No leading spaces (bars start at left edge)
-- Animated like pip progress bars
-- Pip-style timeline (colored → faded last → gap → grey to terminal width)
+User specification:
+- Prominent color curve line (top edge)
+- Crisp edges/peaks showing transitions
+- Each block colored by operation type
+- Green timeline → blink (1 block) → gap → grey
 """
 
 import time
 import sys
-from pathlib import Path
 
 # ANSI colors
 RESET = '\033[0m'
 GRAY = '\033[38;5;240m'
 BLUE = '\033[38;5;110m'    # Discovery
 GREEN = '\033[38;5;108m'   # Execution  
-YELLOW = '\033[38;5;180m'  # AI Analysis
+YELLOW = '\033[38;5;180m'  # AI
 RED = '\033[38;5;174m'     # Auto-fix
 CYAN = '\033[38;5;109m'    # Cache
-FADED_GREEN = '\033[38;5;65m'  # Faded for blinking last char
+FADED_GREEN = '\033[38;5;65m'
 
-# Braille dense block
-BLOCK = '⣿'
+# Braille characters for different purposes
+FULL_BLOCK = '⣿'  # Dense block for filled areas
+EDGE_CHARS = '⣸⣰⣇⣀⢀⡀'  # For prominent curve/edges
+SPARSE_CHARS = '⠊⠑⠒⠱⠴⠳'  # For crisp peaks
+
+
+def get_operation_color(operations, level):
+    """Get the color for the operation at this level."""
+    cumulative = 0
+    
+    for op, color in [('discovery', BLUE), ('execution', GREEN),
+                     ('ai', YELLOW), ('fix', RED), ('cache', CYAN)]:
+        if op in operations:
+            count = operations[op]
+            bottom = cumulative
+            top = cumulative + count
+            cumulative += count
+            
+            # If this level is within this operation's range
+            if level <= top and level > bottom:
+                return color, op
+    
+    return None, None
 
 
 def main():
     """Run animated demo."""
     print("\n" + "="*80)
-    print("  ANIMATED DEMO: Vertical Stacked Colored Bars")
+    print("  FINAL DESIGN: Prominent Curve + Crisp Edges + Colored Blocks")
     print("="*80 + "\n")
     time.sleep(1)
     
@@ -56,57 +75,56 @@ def main():
         {'cache': 1},
     ]
     
-    levels = [12, 6, 3, 1]  # Skip 0.0
+    levels = [12, 6, 3, 1]
     
     # Animation loop
     for frame in range(len(timeline)):
-        sys.stdout.write("\033[2J\033[H")  # Clear screen
+        sys.stdout.write("\033[2J\033[H")
         
         print(f"\n{'='*80}")
         print(f"  Frame {frame + 1}/{len(timeline)}")
         print(f"{'='*80}\n")
         
-        # Render chart rows - EACH BAR SHOWS ALL COLORS STACKED!
-        for level in levels:
+        # Calculate total threads for each point up to current frame
+        totals = []
+        for i in range(frame + 1):
+            totals.append(sum(timeline[i].values()))
+        
+        # Render each level
+        for level_idx, level in enumerate(levels):
             # Y-axis label
             label = f"{GRAY}{level:3d} ┃{RESET}" if level > 1 else f"{GRAY}  {level} ┃{RESET}"
             line = label
             
-            # Render bars up to current frame
+            # Render each column
             for i in range(frame + 1):
                 point = timeline[i]
-                if not point:
+                total = totals[i]
+                
+                if total == 0:
                     line += " "
                     continue
                 
-                # Calculate which operation's color to show at this level
-                # Stack from bottom: discovery, execution, ai, fix, cache
-                cumulative = 0
-                shown_color = None
+                # Get color for this level
+                color, op = get_operation_color(point, level)
                 
-                # Check each operation layer
-                for op, color in [('discovery', BLUE), ('execution', GREEN),
-                                 ('ai', YELLOW), ('fix', RED), ('cache', CYAN)]:
-                    if op in point:
-                        count = point[op]
-                        bottom = cumulative
-                        top = cumulative + count
-                        cumulative += count
-                        
-                        # If this level is within this operation's range, use its color
-                        if level <= top and level > bottom:
-                            shown_color = color
-                            break
-                
-                # Draw block with the operation's color at this level
-                if shown_color:
-                    line += shown_color + BLOCK + RESET
+                if level_idx == 0 and total >= level:
+                    # TOP LEVEL - Prominent curve/edge
+                    # Use sparse chars for peaks
+                    edge_char = SPARSE_CHARS[i % len(SPARSE_CHARS)]
+                    if color:
+                        line += color + edge_char + RESET
+                    else:
+                        line += " "
+                elif color:
+                    # FILLED LEVELS - Full colored blocks
+                    line += color + FULL_BLOCK + RESET
                 else:
                     line += " "
             
             print(line)
         
-        # Pip-style timeline - GREEN with BLINKING last block
+        # GREEN timeline with BLINKING last block
         import shutil
         tw = shutil.get_terminal_size().columns
         
@@ -119,22 +137,19 @@ def main():
         
         tl = f"{GRAY}    ┗━━{RESET}"
         
-        # GREEN colored progress (not grey!)
+        # GREEN progress
         for i in range(frame + 1):
             if i < last_idx:
-                # Solid GREEN progress
                 tl += f"{GREEN}━{RESET}"
             elif i == last_idx:
-                # BLINK between washed GREEN and GREY
+                # BLINK: washed green ↔ grey
                 if frame % 2 == 0:
-                    tl += f"{FADED_GREEN}━{RESET}"  # Washed green
+                    tl += f"{FADED_GREEN}━{RESET}"
                 else:
-                    tl += f"{GRAY}━{RESET}"  # Grey
+                    tl += f"{GRAY}━{RESET}"
         
-        # Gap (space)
+        # Gap + grey to terminal width
         tl += " "
-        
-        # Grey extension to terminal width
         vis = 7 + (last_idx + 1 if last_idx >= 0 else 0) + 1
         remaining = tw - vis - 1
         if remaining > 0:
@@ -145,10 +160,14 @@ def main():
         print(tl)
         
         sys.stdout.flush()
-        time.sleep(0.2)  # Slightly slower to see blink
+        time.sleep(0.2)
     
     print("\n" + "="*80)
-    print("  ✓ Animation complete!")
+    print("  ✓ Final design complete!")
+    print(f"  - Prominent curve: {YELLOW}⠊⠑⠒⠱⠴⠳{RESET}")
+    print(f"  - Crisp edges: {GREEN}⣶⣿⣷{RESET}")
+    print(f"  - Colored blocks: {BLUE}⣿{GREEN}⣿{YELLOW}⣿{RED}⣿{CYAN}⣿{RESET}")
+    print(f"  - Timeline: {GREEN}━━━━{FADED_GREEN}━{RESET} {GRAY}━━━{RESET}")
     print("="*80 + "\n")
 
 
