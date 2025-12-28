@@ -924,7 +924,7 @@ def main():
             return
 
         c_state["status"] = "running"
-        c_state["progress"] = 0
+        # Progress calculated incrementally - don't reset to 0
         c_state["current_test"] = f"Initializing..."
         render_all()
 
