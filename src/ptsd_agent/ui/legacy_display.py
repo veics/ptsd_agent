@@ -527,11 +527,13 @@ class ProgressiveDisplay:
         # Build inline stats suffix for component name when running
         stats_suffix = ""
         if mode == "running" and (file_count > 0 or test_count > 0):
+            # Add ~ prefix if counts are approximate
+            prefix = "~" if (comp and comp.is_approximate) else ""
             parts = []
             if file_count > 0:
-                parts.append(f"{file_count} file{'s' if file_count != 1 else ''}")
+                parts.append(f"{prefix}{file_count} file{'s' if file_count != 1 else ''}")
             if test_count > 0:
-                parts.append(f"{test_count} test{'s' if test_count != 1 else ''}")
+                parts.append(f"{prefix}{test_count} test{'s' if test_count != 1 else ''}")
             if parts:
                 stats_suffix = f": {' '.join(parts)}"
         

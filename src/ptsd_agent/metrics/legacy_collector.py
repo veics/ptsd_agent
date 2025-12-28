@@ -24,6 +24,7 @@ class ComponentMetrics:
     discovered_total: int = 0  # Set before tests run, for progress calculation
     file_count: int = 0  # Number of test files in component
     test_file_count: int = 0  # Total test count from file scanning
+    is_approximate: bool = True  # NEW: Track if counts are approximate (fast) or exact (pytest)
     tests: List[TestResult] = field(default_factory=list)
     
     # NEW: Detailed diagnostic information for --show-logs and Phase Overview
