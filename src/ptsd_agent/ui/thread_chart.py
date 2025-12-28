@@ -284,10 +284,12 @@ class ThreadChartRenderer:
         return self.render()
     
     def _downsample_data(self, data: List[DataPoint], target_width: int) -> List[DataPoint]:
-        """Downsample data."""
+        """Downsample data - NO PADDING for rolling paper effect."""
+        # ROLLING PAPER: Don't pre-allocate full width, just show what we have
+        # This makes the chart "grow" from left to right like printer paper
         if len(data) <= target_width:
-            padding = target_width - len(data)
-            return list(data) + [DataPoint(0, {}) for _ in range(padding)]
+            # Just return the data as-is, no padding!
+            return list(data)
         
         step = len(data) / target_width
         downsampled = []
