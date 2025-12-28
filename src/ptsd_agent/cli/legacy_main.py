@@ -1132,55 +1132,10 @@ def main():
         # Log results
         logger.log_snapshot(summary, collector.components)
         
-        # All tests completed - exit alternate screen
-        display.terminal.exit_alternate_screen()
-        
-        # Print final summary to normal terminal (appears in scrollback history)
-        from ptsd_agent.ui.theme import CYAN, GREEN, YELLOW, RED, GRAY, BOLD, RESET, DIM
-        print()
-        print(f"{BOLD}{CYAN}{'=' * 80}{RESET}")
-        print(f"{BOLD}Test Execution Complete{RESET}")
-        print(f"{CYAN}{'=' * 80}{RESET}")
-        print()
-        
-        # Print project summary
-        project_name = getattr(project_config, 'project_name', 'UNKNOWN')
-        print(f"{BOLD}Project:{RESET} {CYAN}{project_name}{RESET}")
-        
-        # Calculate overall metrics
-        total_passed = sum(
-            sum(1 for c in state["phases"][p_id]["components"].values() if c.get("pass_count", 0) > 0)
-            for p_id in active_phases
-        )
-        total_failed = sum(
-            sum(c.get("fail_count", 0) for c in state["phases"][p_id]["components"].values())
-            for p_id in active_phases
-        )
-        total_errors = sum(
-            sum(c.get("error_count", 0) for c in state["phases"][p_id]["components"].values())
-            for p_id in active_phases
-        )
-        overall_coverage = state.get("overall_coverage", 0)
-        
-        # Status color based on results
-        if total_errors > 0 or total_failed > 0:
-            status_color = RED if total_errors > 0 else YELLOW
-            status_icon = "✗" if total_errors > 0 else "⚠"
-        else:
-            status_color = GREEN
-            status_icon = "✓"
-        
-        print(f"{status_color}{status_icon}{RESET} {BOLD}Results:{RESET}")
-        print(f"  Phases Completed: {GREEN}{len(active_phases)}{RESET}")
-        print(f"  Components: {total_passed} passed")
-        if total_failed > 0:
-            print(f"  Failures: {YELLOW}{total_failed}{RESET}")
-        if total_errors > 0:
-            print(f"  Errors: {RED}{total_errors}{RESET}")
-        print(f"  Coverage: {CYAN}{overall_coverage:.1f}%{RESET}")
-        print()
-        print(f"{DIM}Run saved to history{RESET}")
-        print()
+        # Alternate screen exit and summary disabled (progress bars broken with alternate screen)
+        # TODO: Re-enable when proper buffer management implemented
+        # display.terminal.exit_alternate_screen()
+        # Print summary code commented out
         
         # Save run history (JSON + SQLite)
         from ptsd_agent.storage.legacy_history import get_history_store
