@@ -65,14 +65,14 @@ class ThreadChartRenderer:
     
     # Curve spacing removed - not needed for new design
     
-    def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 5, use_advanced_lut: bool = False):
+    def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 5, use_advanced_lut: bool = True):
         """Initialize chart renderer.
         
         Args:
             max_threads: Maximum thread count
             terminal_width: Terminal width (auto-detect if None)
             height: Number of vertical levels to display
-            use_advanced_lut: If True, use full LUT for operations (slower, smoother)
+            use_advanced_lut: If True, use full LUT for operations (slower, smoother) DEFAULT
                             If False, use LUT only for curve (faster, good enough)
         """
         if terminal_width is None:
