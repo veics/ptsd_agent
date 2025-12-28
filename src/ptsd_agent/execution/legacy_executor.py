@@ -144,13 +144,38 @@ class TestExecutor:
         # Get PYTHONPATH for this test
         pythonpath = self._get_pythonpath_for_test(test_path)
         
-                # No tests discovered - just return 0
+        # Check if path exists
+        if not test_path or not Path(test_path).exists():
+            return 0
+        
+        # Phase 2 optimization: Use cached discovery if available
+        if component_name in self._discovery_cache:
+            cached = self._discovery_cache[component_name]
+            logger.debug(f"Using cached discovery for {component_name}: ~{cached['tests']} tests")
+        else:
+            # Fallback: Run discovery if not cached
+            tests, error_msg = self._discover_tests(test_path, pythonpath=pythonpath)
+            if not tests:
                 return 0
-            # Store discovered count for accurate progress calculation
             self.collector.set_discovered_total(component_name, len(tests))
         
-        # Run pytest with verbose output
-        return self._run_pytest(component_name, test_path, pythonpath=pythonpath, callback=callback)
+        # Run pytest - route through thread pool if available
+        if self.thread_pool:
+            # Submit via thread pool for proper tracking and chart updates
+            future = self.thread_pool.submit(
+                OperationType.EXECUTION,
+                self._run_pytest,
+                component_name, test_path, pythonpath,
+                priority=OperationPriority.HIGH,
+                component_name=component_name,
+                phase_id=phase_id,
+                callback=callback
+            )
+            # Wait for completion
+            future.result()
+        else:
+            # Fallback: direct execution
+            self._run_pytest(component_name, test_path, pythonpath, callback=callback)
 
     
     def _discover_tests(self, test_path: str, pythonpath: str = None) -> tuple:
