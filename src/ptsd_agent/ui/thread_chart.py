@@ -1,11 +1,11 @@
-"""Stunning thread chart with Braille curves and background colors.
+"""Stunning thread chart with smooth Braille curves.
 
-Inspired by terminal analytics design - uses smooth Braille characters
-with background colors for an elegant, modern visualization.
+Creates elegant curved lines connecting data points using
+Braille characters, with background fills for beautiful visualization.
 """
 
 import time
-from typing import List, Tuple
+from typing import List, Optional
 from dataclasses import dataclass
 from enum import Enum
 
@@ -30,45 +30,34 @@ class DataPoint:
 class ThreadChartRenderer:
     """Renders stunning thread chart with Braille curves."""
     
-    # Braille patterns for smooth curves
-    BRAILLE_CURVES = {
-        'top': '⠶',
-        'rise_start': '⢠⠋',
-        'rise_mid': '⣠⠃⠚',
-        'rise_strong': '⡏⠁⠂',
-        'baseline': '⠒',
-        'peak': '⠉⠁',
-        'fall': '⠈⠉',
-    }
+    # Braille patterns for smooth curves (connecting points)
+    CURVE_RISE = ['⢠', '⣀', '⣠', '⣤', '⣴', '⣶', '⣷', '⣿']
+    CURVE_FALL = ['⠻', '⠹', '⠱', '⠡', '⠁']
     
     # Background fill characters
-    FILL_CHARS = {
-        'light': '░',
-        'medium': '▒',
-        'heavy': '▓',
-    }
+    FILL_CHARS = ['░', '▒', '▓', '█']
     
     # Color schemes (softer, more elegant)
     COLORS = {
         OperationType.DISCOVERY: {
-            'fg': '\033[38;5;110m',      # Soft blue
-            'bg': '\033[48;5;17m',        # Dark blue bg
+            'fg': '\033[38;5;110m',
+            'bg': '\033[48;5;17m',
         },
         OperationType.EXECUTION: {
-            'fg': '\033[38;5;108m',       # Soft green
-            'bg': '\033[48;5;22m',        # Dark green bg
+            'fg': '\033[38;5;108m',
+            'bg': '\033[48;5;22m',
         },
         OperationType.AI_ANALYSIS: {
-            'fg': '\033[38;5;180m',       # Soft yellow
-            'bg': '\033[48;5;94m',        # Dark yellow bg
+            'fg': '\033[38;5;180m',
+            'bg': '\033[48;5;94m',
         },
         OperationType.AUTO_FIX: {
-            'fg': '\033[38;5;174m',       # Soft red
-            'bg': '\033[48;5;52m',        # Dark red bg
+            'fg': '\033[38;5;174m',
+            'bg': '\033[48;5;52m',
         },
         OperationType.CACHE: {
-            'fg': '\033[38;5;109m',       # Soft cyan
-            'bg': '\033[48;5;23m',        # Dark cyan bg
+            'fg': '\033[38;5;109m',
+            'bg': '\033[48;5;23m',
         },
     }
     
@@ -84,6 +73,7 @@ class ThreadChartRenderer:
         
         self.timeline_data: List[DataPoint] = []
         self.start_time = time.time()
+        self.downsampled_data: List[DataPoint] = []
     
     def add_data_point(self, active_threads: int, operation_type: OperationType):
         """Add data point to timeline."""
@@ -94,52 +84,54 @@ class ThreadChartRenderer:
         )
         self.timeline_data.append(point)
     
-    def _get_braille_segment(self, idx: int, value: float, level_min: float, level_max: float, op_type: OperationType) -> str:
-        """Get beautiful Braille segment with background color."""
+    def _get_char_at_position(self, idx: int, value: float, prev_value: Optional[float], 
+                             next_value: Optional[float], level_min: float, level_max: float, 
+                             op_type: OperationType) -> str:
+        """Get character at this position - curve, fill, or space."""
         colors = self.COLORS.get(op_type, self.COLORS[OperationType.CACHE])
         
+        # Empty space below threshold
         if value <= level_min:
             return ' '
-        elif value >= level_max:
-            # Full fill with background color
-            return colors['bg'] + colors['fg'] + self.FILL_CHARS['heavy'] + self.RESET
-        else:
-            # Partial fill - gradient
-            ratio = (value - level_min) / (level_max - level_min)
-            
-            if ratio < 0.33:
-                char = self.FILL_CHARS['light']
-            elif ratio < 0.67:
-                char = self.FILL_CHARS['medium']
-            else:
-                char = self.FILL_CHARS['heavy']
-            
+        
+        # Check if this is an edge (curve needed)
+        is_rising_edge = prev_value is not None and prev_value < level_min and value >= level_min
+        is_falling_edge = next_value is not None and value >= level_max and next_value < level_max
+        
+        # Rising curve
+        if is_rising_edge:
+            curve_progress = min((value - level_min) / (level_max - level_min), 1.0)
+            curve_idx = int(curve_progress * (len(self.CURVE_RISE) - 1))
+            char = self.CURVE_RISE[curve_idx]
+            return colors['fg'] + char + self.RESET
+        
+        # Falling curve  
+        if is_falling_edge:
+            curve_progress = min((next_value - level_min) / (level_max - level_min), 1.0) if next_value else 0
+            curve_idx = int(curve_progress * (len(self.CURVE_FALL) - 1))
+            char = self.CURVE_FALL[curve_idx]
+            return colors['fg'] + char + self.RESET
+        
+        # Full fill with background
+        if value >= level_max:
+            fill_idx = min(int((value / self.max_threads) * len(self.FILL_CHARS)), len(self.FILL_CHARS) - 1)
+            char = self.FILL_CHARS[fill_idx]
             return colors['bg'] + colors['fg'] + char + self.RESET
-    
-    def _detect_edge(self, idx: int, downsampled: List[DataPoint], level_min: float, level_max: float) -> Tuple[bool, str]:
-        """Detect if this is a rising/falling edge and return Braille character."""
-        if idx == 0 or idx >= len(downsampled) - 1:
-            return False, ''
         
-        curr = downsampled[idx].active_threads
-        prev = downsampled[idx - 1].active_threads
+        # Partial fill - gradient
+        ratio = (value - level_min) / (level_max - level_min)
+        fill_idx = int(ratio * len(self.FILL_CHARS))
+        fill_idx = min(fill_idx, len(self.FILL_CHARS) - 1)
+        char = self.FILL_CHARS[fill_idx]
         
-        # Rising edge entering this level
-        if prev < level_min and curr >= level_min:
-            return True, '⣠'
-        
-        # Falling edge leaving this level  
-        if prev >= level_max and curr < level_max:
-            return True, '⠹⣄'
-        
-        return False, ''
+        return colors['bg'] + colors['fg'] + char + self.RESET
     
     def render(self) -> str:
         """Render stunning Braille curve chart."""
         if not self.timeline_data:
             return ""
         
-        downsampled = self._downsample_data(self.timeline_data, self.chart_width)
+        self.downsampled_data = self._downsample_data(self.timeline_data, self.chart_width)
         
         lines = []
         threads_per_level = self.max_threads / self.height
@@ -159,9 +151,13 @@ class ThreadChartRenderer:
             
             line = label + " "
             
-            for idx, point in enumerate(downsampled):
-                seg = self._get_braille_segment(idx, point.active_threads, level_min, level_max, point.operation_type)
-                line += seg
+            for idx, point in enumerate(self.downsampled_data):
+                prev_val = self.downsampled_data[idx - 1].active_threads if idx > 0 else None
+                next_val = self.downsampled_data[idx + 1].active_threads if idx < len(self.downsampled_data) - 1 else None
+                
+                char = self._get_char_at_position(idx, point.active_threads, prev_val, next_val,
+                                                 level_min, level_max, point.operation_type)
+                line += char
             
             lines.append(line)
         
@@ -169,7 +165,7 @@ class ThreadChartRenderer:
         timeline_line = f"{self.GRAY}    ┗━━{self.RESET}"
         
         prev_op = None
-        for idx, point in enumerate(downsampled):
+        for idx, point in enumerate(self.downsampled_data):
             if prev_op and prev_op != point.operation_type:
                 timeline_line += self.RESET + self.GRAY + "╸" + self.RESET
             
