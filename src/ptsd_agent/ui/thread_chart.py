@@ -1,7 +1,9 @@
-"""Smooth continuous curve with multi-dot Braille patterns.
+"""Sparse curve with vertical column coloring.
 
-Uses 2-4 dot Braille patterns for smooth, continuous curve line
-floating over dense operation blocks.
+Beautiful design:
+- Sparse 1-3 dot patterns for prominent curve line
+- Entire vertical columns colored by operation type
+- Clean, elegant visualization
 """
 
 import time
@@ -31,13 +33,13 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders chart with smooth continuous curve."""
+    """Renders chart with sparse curve and vertical coloring."""
     
-    # Smooth continuous patterns (2-4 dots) for beautiful curve line
-    SMOOTH_CURVE = ['⠀', '⠤', '⠦', '⠶', '⠷', '⠿', '⣀', '⣄', '⣤', '⣦', '⣶', '⣷', '⣿']
+    # Very sparse patterns (1-3 dots max) for prominent curve line
+    SPARSE_CURVE = ['⠀', '⠁', '⠂', '⠃', '⠄', '⠅', '⠆', '⠇']
     
-    # Dense blocks for filled areas (6-8 dots)
-    DENSE_BLOCKS = ['⣤', '⣦', '⣶', '⣷', '⣿']
+    # Dense blocks for filled areas
+    DENSE_BLOCKS = ['⣿']
     
     # Foreground colors
     FG_COLORS = {
@@ -69,23 +71,14 @@ class ThreadChartRenderer:
         )
         self.timeline_data.append(point)
     
-    def _get_smooth_curve_char(self, value: float) -> str:
-        """Get smooth continuous curve character."""
+    def _get_sparse_curve_char(self, value: float) -> str:
+        """Get very sparse curve character (1-3 dots)."""
         if value <= 0:
-            return self.SMOOTH_CURVE[0]
+            return self.SPARSE_CURVE[0]
         
         ratio = min(value / self.max_threads, 1.0)
-        idx = int(ratio * (len(self.SMOOTH_CURVE) - 1))
-        return self.SMOOTH_CURVE[idx]
-    
-    def _get_dense_block(self, value: float, level_threads: float) -> str:
-        """Get dense block."""
-        if value <= 0:
-            return ' '
-        
-        ratio = min(value / level_threads, 1.0)
-        idx = int(ratio * (len(self.DENSE_BLOCKS) - 1))
-        return self.DENSE_BLOCKS[idx]
+        idx = int(ratio * (len(self.SPARSE_CURVE) - 1))
+        return self.SPARSE_CURVE[idx]
     
     def _is_curve_level(self, level_idx: int, total_levels: int, point_value: float) -> bool:
         """Check if curve should be drawn at this level."""
@@ -96,7 +89,7 @@ class ThreadChartRenderer:
         return level_min <= point_value < level_max
     
     def render(self) -> str:
-        """Render smooth continuous curve with dense blocks."""
+        """Render sparse curve with vertical column coloring."""
         if not self.timeline_data:
             return ""
         
@@ -121,31 +114,25 @@ class ThreadChartRenderer:
             line = label + " "
             
             for point in downsampled:
-                # Check if smooth curve should be drawn here
-                if self._is_curve_level(level_idx, self.height, point.total_threads):
-                    # Draw smooth continuous curve
-                    curve_char = self._get_smooth_curve_char(point.total_threads)
-                    if point.operations:
-                        dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
-                        color = self.FG_COLORS.get(dominant_op, '')
-                        line += color + curve_char + self.RESET
-                    else:
-                        line += curve_char
+                # Get dominant operation for this column
+                if point.operations:
+                    dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
+                    color = self.FG_COLORS.get(dominant_op, '')
                 else:
-                    # Draw dense block below curve
-                    rendered = False
-                    
-                    for op_type, thread_count in sorted(point.operations.items(), 
-                                                       key=lambda x: x[1], reverse=True):
-                        if thread_count > level_min:
-                            block = self._get_dense_block(thread_count - level_min, threads_per_level)
-                            if block != ' ':
-                                color = self.FG_COLORS.get(op_type, '')
-                                line += color + block + self.RESET
-                                rendered = True
-                                break
-                    
-                    if not rendered:
+                    dominant_op = None
+                    color = ''
+                
+                # Check if sparse curve should be drawn here
+                if self._is_curve_level(level_idx, self.height, point.total_threads):
+                    # Draw sparse curve dot (1-3 dots)
+                    dot = self._get_sparse_curve_char(point.total_threads)
+                    line += color + dot + self.RESET
+                else:
+                    # Draw dense block if within operation range
+                    # Color entire vertical column by dominant operation
+                    if point.total_threads > level_min:
+                        line += color + self.DENSE_BLOCKS[0] + self.RESET
+                    else:
                         line += ' '
             
             lines.append(line)
