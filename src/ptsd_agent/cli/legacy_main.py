@@ -1664,11 +1664,13 @@ def main():
             if show_diag:
                 print()
                 from ptsd_agent.ui.components import DiagnosticsSection
+                # Use tree view if CLI flag is set OR config enables it
+                use_tree = args.diagnostics_tree or diag_config.get("use_tree_view", False)
                 diagnostics = DiagnosticsSection(
                     collector=collector,
                     term_width=term_width,
                     show_diagnostics=True,
-                    use_tree_view=args.diagnostics_tree,
+                    use_tree_view=use_tree,
                     state=state,
                     active_phases=active_phases
                 )

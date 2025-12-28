@@ -30,6 +30,7 @@ class ProjectConfig:
         # Default diagnostics config
         defaults = {
             "show_diagnostics": False,
+            "use_tree_view": False,  # Use hierarchical tree view for diagnostics
             "show_all_diagnostics": False,  # Show all items, not just first 2 per category
             "diagnostics_limits": {
                 "max_failures": 10,
@@ -50,6 +51,8 @@ class ProjectConfig:
                         diag_conf = user_config["diagnostics"]
                         if "show_diagnostics" in diag_conf:
                             defaults["show_diagnostics"] = diag_conf["show_diagnostics"]
+                        if "use_tree_view" in diag_conf:
+                            defaults["use_tree_view"] = diag_conf["use_tree_view"]
                         if "show_all_diagnostics" in diag_conf:
                             defaults["show_all_diagnostics"] = diag_conf["show_all_diagnostics"]
                         if "diagnostics_limits" in diag_conf:
