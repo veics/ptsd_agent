@@ -1,9 +1,7 @@
-"""Sparse curve with vertical column coloring.
+"""Stacked horizontal colored blocks showing parallel operations.
 
-Beautiful design:
-- Sparse 1-3 dot patterns for prominent curve line
-- Entire vertical columns colored by operation type
-- Clean, elegant visualization
+Each block colored by its own operation type - multiple operations
+stack vertically with different colors.
 """
 
 import time
@@ -33,13 +31,13 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders chart with sparse curve and vertical coloring."""
+    """Renders chart with horizontally colored stacked blocks."""
     
-    # Very sparse patterns (1-3 dots max) for prominent curve line
+    # Very sparse patterns (1-3 dots) for curve line
     SPARSE_CURVE = ['⠀', '⠁', '⠂', '⠃', '⠄', '⠅', '⠆', '⠇']
     
-    # Dense blocks for filled areas
-    DENSE_BLOCKS = ['⣿']
+    # Dense block
+    DENSE_BLOCK = '⣿'
     
     # Foreground colors
     FG_COLORS = {
@@ -72,7 +70,7 @@ class ThreadChartRenderer:
         self.timeline_data.append(point)
     
     def _get_sparse_curve_char(self, value: float) -> str:
-        """Get very sparse curve character (1-3 dots)."""
+        """Get sparse curve character."""
         if value <= 0:
             return self.SPARSE_CURVE[0]
         
@@ -83,13 +81,13 @@ class ThreadChartRenderer:
     def _is_curve_level(self, level_idx: int, total_levels: int, point_value: float) -> bool:
         """Check if curve should be drawn at this level."""
         threads_per_level = self.max_threads / total_levels
-        level_max = (level_idx + 1) * threads_per_level
+        level_max = (level_idx + 1) * threads_per_level  
         level_min = level_idx * threads_per_level
         
         return level_min <= point_value < level_max
     
     def render(self) -> str:
-        """Render sparse curve with vertical column coloring."""
+        """Render sparse curve with horizontally colored stacked blocks."""
         if not self.timeline_data:
             return ""
         
@@ -114,25 +112,37 @@ class ThreadChartRenderer:
             line = label + " "
             
             for point in downsampled:
-                # Get dominant operation for this column
-                if point.operations:
-                    dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
-                    color = self.FG_COLORS.get(dominant_op, '')
-                else:
-                    dominant_op = None
-                    color = ''
-                
                 # Check if sparse curve should be drawn here
                 if self._is_curve_level(level_idx, self.height, point.total_threads):
-                    # Draw sparse curve dot (1-3 dots)
+                    # Draw sparse curve dot
                     dot = self._get_sparse_curve_char(point.total_threads)
-                    line += color + dot + self.RESET
-                else:
-                    # Draw dense block if within operation range
-                    # Color entire vertical column by dominant operation
-                    if point.total_threads > level_min:
-                        line += color + self.DENSE_BLOCKS[0] + self.RESET
+                    if point.operations:
+                        dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
+                        color = self.FG_COLORS.get(dominant_op, '')
+                        line += color + dot + self.RESET
                     else:
+                        line += dot
+                else:
+                    # Find which operation(s) contribute to this level
+                    # Sort by thread count to stack properly
+                    drawn = False
+                    cumulative_threads = 0
+                    
+                    for op_type, thread_count in sorted(point.operations.items(), 
+                                                       key=lambda x: x[1], reverse=True):
+                        op_starts = cumulative_threads
+                        op_ends = cumulative_threads + thread_count
+                        cumulative_threads = op_ends
+                        
+                        # Check if this operation occupies this level
+                        if op_starts < level_max and op_ends > level_min:
+                            # This operation's block is at this level - color it!
+                            color = self.FG_COLORS.get(op_type, '')
+                            line += color + self.DENSE_BLOCK + self.RESET
+                            drawn = True
+                            break
+                    
+                    if not drawn:
                         line += ' '
             
             lines.append(line)
