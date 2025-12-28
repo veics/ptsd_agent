@@ -1,12 +1,11 @@
-"""Beautiful floating dot curve with dense operation blocks.
+"""Smooth continuous curve with multi-dot Braille patterns.
 
-Two-layer design:
-- Top: Sparse colored Braille dots forming smooth curve
-- Bottom: Dense Braille blocks showing operation levels
+Uses 2-4 dot Braille patterns for smooth, continuous curve line
+floating over dense operation blocks.
 """
 
 import time
-from typing import List, Dict, Optional
+from typing import List, Dict
 from dataclasses import dataclass
 from enum import Enum
 
@@ -32,12 +31,12 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders chart with floating dot curve and dense blocks."""
+    """Renders chart with smooth continuous curve."""
     
-    # Sparse Braille dots for curve (single-dot patterns)
-    SPARSE_DOTS = ['⠀', '⠁', '⠂', '⠄', '⠈', '⠐', '⠠', '⡀']
+    # Smooth continuous patterns (2-4 dots) for beautiful curve line
+    SMOOTH_CURVE = ['⠀', '⠤', '⠦', '⠶', '⠷', '⠿', '⣀', '⣄', '⣤', '⣦', '⣶', '⣷', '⣿']
     
-    # Dense Braille blocks for filled areas (6-8 dots filled)
+    # Dense blocks for filled areas (6-8 dots)
     DENSE_BLOCKS = ['⣤', '⣦', '⣶', '⣷', '⣿']
     
     # Foreground colors
@@ -70,17 +69,17 @@ class ThreadChartRenderer:
         )
         self.timeline_data.append(point)
     
-    def _get_sparse_dot(self, value: float) -> str:
-        """Get sparse Braille dot for curve."""
+    def _get_smooth_curve_char(self, value: float) -> str:
+        """Get smooth continuous curve character."""
         if value <= 0:
-            return self.SPARSE_DOTS[0]
+            return self.SMOOTH_CURVE[0]
         
         ratio = min(value / self.max_threads, 1.0)
-        idx = int(ratio * (len(self.SPARSE_DOTS) - 1))
-        return self.SPARSE_DOTS[idx]
+        idx = int(ratio * (len(self.SMOOTH_CURVE) - 1))
+        return self.SMOOTH_CURVE[idx]
     
     def _get_dense_block(self, value: float, level_threads: float) -> str:
-        """Get dense Braille block."""
+        """Get dense block."""
         if value <= 0:
             return ' '
         
@@ -94,11 +93,10 @@ class ThreadChartRenderer:
         level_max = (level_idx + 1) * threads_per_level
         level_min = level_idx * threads_per_level
         
-        # Curve floats at the exact thread level
         return level_min <= point_value < level_max
     
     def render(self) -> str:
-        """Render floating dot curve with dense blocks."""
+        """Render smooth continuous curve with dense blocks."""
         if not self.timeline_data:
             return ""
         
@@ -123,24 +121,23 @@ class ThreadChartRenderer:
             line = label + " "
             
             for point in downsampled:
-                # Check if curve should be drawn here (floating on top)
+                # Check if smooth curve should be drawn here
                 if self._is_curve_level(level_idx, self.height, point.total_threads):
-                    # Draw sparse colored dot for curve
-                    dot = self._get_sparse_dot(point.total_threads)
+                    # Draw smooth continuous curve
+                    curve_char = self._get_smooth_curve_char(point.total_threads)
                     if point.operations:
                         dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
                         color = self.FG_COLORS.get(dominant_op, '')
-                        line += color + dot + self.RESET
+                        line += color + curve_char + self.RESET
                     else:
-                        line += dot
+                        line += curve_char
                 else:
-                    # Draw dense block for filled area below curve
+                    # Draw dense block below curve
                     rendered = False
                     
                     for op_type, thread_count in sorted(point.operations.items(), 
                                                        key=lambda x: x[1], reverse=True):
                         if thread_count > level_min:
-                            # Dense block with color
                             block = self._get_dense_block(thread_count - level_min, threads_per_level)
                             if block != ' ':
                                 color = self.FG_COLORS.get(op_type, '')
