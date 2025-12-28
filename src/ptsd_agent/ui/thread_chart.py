@@ -154,12 +154,17 @@ class ThreadChartRenderer:
         
         return None
     
+    
     def render(self) -> str:
-        """Render chart with spaced curve."""
+        """Render vertical stacked colored bars chart."""
         if not self.timeline_data:
             return ""
         
+        # Downsample to fit chart width
         self.downsampled_data = self._downsample_data(self.timeline_data, self.chart_width)
+        
+        if not self.downsampled_data:
+            return ""
         
         lines = []
         max_log = self._log_scale(self.max_threads)
