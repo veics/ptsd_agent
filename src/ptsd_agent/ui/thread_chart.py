@@ -275,25 +275,60 @@ class ThreadChartRenderer:
                         else:
                             line += " "
                 else:
-                    # Get color for this level
-                    color, op = get_operation_color(point.operations, level)
-                    
-                    if color:
-                        # Check for crisp edge (operation transition)
-                        prev_color, prev_op = None, None
-                        if i > 0:
-                            prev_color, prev_op = get_operation_color(
-                                self.downsampled_data[i-1].operations, level
-                            )
+                    # OPERATION BLOCKS - Use LUT if advanced mode enabled
+                    if self.use_advanced_lut and i > 0:
+                        # OPTION B: Full LUT for operations (smooth but complex)
+                        # Calculate exact operation heights for this and previous column
+                        prev_point = self.downsampled_data[i-1]
+                        curr_point = point
                         
-                        # Crisp edge at transition - use consistent LUT edge char
-                        if prev_op and prev_op != op:
-                            line += color + self.LUT[1][4] + self.RESET  # '⣸' crisp edge
+                        # Find which operation(s) occupy this level
+                        color, op = get_operation_color(curr_point.operations, level)
+                        prev_color, prev_op = get_operation_color(prev_point.operations, level)
+                        
+                        if color:
+                            # Calculate sub-dot heights for current level
+                            # Each level is 4 sub-dots tall
+                            level_idx_from_bottom = levels.index(level)
+                            row_bottom = level_idx_from_bottom * 4
+                            row_top = (level_idx_from_bottom + 1) * 4
+                            
+                            # Normalize operation totals to sub-dot scale
+                            prev_total = prev_point.total_threads
+                            curr_total = curr_point.total_threads
+                            y1 = (prev_total / self.max_threads) * len(levels) * 4
+                            y2 = (curr_total / self.max_threads) * len(levels) * 4
+                            
+                            # Get LUT character for smooth transition
+                            char = self._get_lut_char(y1, y2, row_bottom, row_top)
+                            
+                            # Apply operation color to LUT character
+                            if char != self.LUT[0][0]:  # Not empty
+                                line += color + char + self.RESET
+                            else:
+                                line += " "
                         else:
-                            # Full block
-                            line += color + self.FULL_BLOCK + self.RESET
+                            line += " "
                     else:
-                        line += " "
+                        # OPTION A: Simple block mode (default, fast)
+                        color, op = get_operation_color(point.operations, level)
+                        
+                        if color:
+                            # Check for crisp edge (operation transition)
+                            prev_color, prev_op = None, None
+                            if i > 0:
+                                prev_color, prev_op = get_operation_color(
+                                    self.downsampled_data[i-1].operations, level
+                                )
+                            
+                            # Crisp edge at transition - use consistent LUT edge char
+                            if prev_op and prev_op != op:
+                                line += color + self.LUT[1][4] + self.RESET  # '⣸' crisp edge
+                            else:
+                                # Full block
+                                line += color + self.FULL_BLOCK + self.RESET
+                        else:
+                            line += " "
             
             lines.append(line)
         
