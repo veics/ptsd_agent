@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Enhanced demo script for thread chart visualization.
+"""Enhanced demo with parallel operations visualization.
 
-Shows beautiful Braille curves with varied thread activity patterns.
+Shows multiple operation types running in parallel with stacked
+colored blocks and smooth curve on top.
 """
 
 import time
@@ -14,59 +15,82 @@ sys.path.insert(0, str(Path(__file__).parent / 'src'))
 from ptsd_agent.ui.thread_chart import ThreadChartRenderer, OperationType
 
 
-def demo_thread_chart():
-    """Demonstrate thread chart with varied activity patterns."""
+def demo_parallel_operations():
+    """Demonstrate thread chart with parallel operations."""
     print("\n" + "="*80)
-    print("  PTSD Agent v0.7.0 - Thread Utilization Chart Demo")
-    print("  Beautiful Braille curves with colored timeline")
+    print("  PTSD Agent v0.7.0 - Parallel Operations Thread Chart")
+    print("  Stacked colored blocks + smooth curve line")
     print("="*80 + "\n")
     
     # Create chart
     chart = ThreadChartRenderer(max_threads=12, terminal_width=80, height=5)
     
-    # Simulate realistic test execution flow
-    operations = [
-        # Discovery phase - ramping up
-        (OperationType.DISCOVERY, 2), (OperationType.DISCOVERY, 4),
-        (OperationType.DISCOVERY, 6), (OperationType.DISCOVERY, 8),
-        (OperationType.DISCOVERY, 10), (OperationType.DISCOVERY, 12),
-        (OperationType.DISCOVERY, 11), (OperationType.DISCOVERY, 9),
+    # Simulate PARALLEL operations (multiple types at once!)
+    parallel_ops = [
+        # Early: Just discovery
+        [(OperationType.DISCOVERY, 2)],
+        [(OperationType.DISCOVERY, 4)],
+        [(OperationType.DISCOVERY, 6)],
         
-        # Execution phase - high activity
-        (OperationType.EXECUTION, 8), (OperationType.EXECUTION, 10),
-        (OperationType.EXECUTION, 12), (OperationType.EXECUTION, 12),
-        (OperationType.EXECUTION, 11), (OperationType.EXECUTION, 10),
-        (OperationType.EXECUTION, 9), (OperationType.EXECUTION, 8),
-        (OperationType.EXECUTION, 7), (OperationType.EXECUTION, 6),
+        # Discovery + early execution starting
+        [(OperationType.DISCOVERY, 4), (OperationType.EXECUTION, 2)],
+        [(OperationType.DISCOVERY, 3), (OperationType.EXECUTION, 4)],
+        [(OperationType.DISCOVERY, 2), (OperationType.EXECUTION, 6)],
         
-        # AI analysis phase - medium activity
-        (OperationType.AI_ANALYSIS, 4), (OperationType.AI_ANALYSIS, 5),
-        (OperationType.AI_ANALYSIS, 6), (OperationType.AI_ANALYSIS, 5),
-        (OperationType.AI_ANALYSIS, 4), (OperationType.AI_ANALYSIS, 3),
+        # Mostly execution, some discovery finishing
+        [(OperationType.DISCOVERY, 1), (OperationType.EXECUTION, 8)],
+        [(OperationType.EXECUTION, 10)],
+        [(OperationType.EXECUTION, 12)],
+        [(OperationType.EXECUTION, 11)],
         
-        # Auto-fix phase - sporadic
-        (OperationType.AUTO_FIX, 2), (OperationType.AUTO_FIX, 4),
-        (OperationType.AUTO_FIX, 3), (OperationType.AUTO_FIX, 2),
+        # Execution + AI analysis starting
+        [(OperationType.EXECUTION, 8), (OperationType.AI_ANALYSIS, 2)],
+        [(OperationType.EXECUTION, 6), (OperationType.AI_ANALYSIS, 3)],
+        [(OperationType.EXECUTION, 4), (OperationType.AI_ANALYSIS, 4)],
         
-        # Cache operations - low activity
-        (OperationType.CACHE, 1), (OperationType.CACHE, 2),
-        (OperationType.CACHE, 1), (OperationType.CACHE, 0),
+        # AI analysis + auto-fix
+        [(OperationType.AI_ANALYSIS, 4), (OperationType.AUTO_FIX, 2)],
+        [(OperationType.AI_ANALYSIS, 3), (OperationType.AUTO_FIX, 3)],
+        [(OperationType.AI_ANALYSIS, 2), (OperationType.AUTO_FIX, 2)],
+        
+        # Auto-fix + cache operations
+        [(OperationType.AUTO_FIX, 2), (OperationType.CACHE, 1)],
+        [(OperationType.AUTO_FIX, 1), (OperationType.CACHE, 2)],
+        [(OperationType.CACHE, 2)],
+        [(OperationType.CACHE, 1)],
     ]
     
-    print("Simulating test execution with realistic thread activity...\n")
-    print("Watch the beautiful Braille curves form! 🌊\n")
+    print("Simulating PARALLEL operations (multiple types at once)...\n")
+    print("Different colored blocks = different operations running together! 🌈\n")
     
     # Animated rendering
-    for i, (op_type, thread_count) in enumerate(operations):
-        chart.add_data_point(thread_count, op_type)
+    for i, ops in enumerate(parallel_ops):
+        # Add all parallel operations for this time point
+        total_threads = sum(threads for _, threads in ops)
+        # For now, use the dominant operation type
+        dominant_op = max(ops, key=lambda x: x[1])[0]
+        chart.add_data_point(total_threads, dominant_op)
         
         # Clear screen and render
-        sys.stdout.write("\033[2J\033[H")  # Clear and home
+        sys.stdout.write("\033[2J\033[H")
         
         # Header
         print("\n" + "="*80)
-        print(f"  Progress: {i+1}/{len(operations)} data points")
+        print(f"  Time: {i+1}/{len(parallel_ops)} | Active Operations: {len(ops)}")
         print("="*80 + "\n")
+        
+        # Show current operations
+        print("  Current parallel operations:")
+        for op, threads in ops:
+            color = {
+                OperationType.DISCOVERY: '\033[38;5;110m',
+                OperationType.EXECUTION: '\033[38;5;108m',
+                OperationType.AI_ANALYSIS: '\033[38;5;180m',
+                OperationType.AUTO_FIX: '\033[38;5;174m',
+                OperationType.CACHE: '\033[38;5;109m',
+            }.get(op, '')
+            print(f"    {color}■\033[0m {op.value:12s} : {threads:2d} threads")
+        print()
         
         # Render chart
         chart_output = chart.render()
@@ -74,27 +98,25 @@ def demo_thread_chart():
         
         # Legend
         print("\n" + "─"*80)
-        print("  Chart Legend:")
-        print("    \033[38;5;110m█\033[0m Blue    = Discovery")
-        print("    \033[38;5;108m█\033[0m Green   = Execution")
-        print("    \033[38;5;180m█\033[0m Yellow  = AI Analysis")
-        print("    \033[38;5;174m█\033[0m Red     = Auto-Fix")
-        print("    \033[38;5;109m█\033[0m Cyan    = Cache")
+        print("  Chart shows:")
+        print("    • Colored blocks = Operations running in parallel")
+        print("    • Top curve line = Total thread activity")
+        print("    • Smooth Braille curves show execution flow")
         print("─"*80)
         
         sys.stdout.flush()
-        time.sleep(0.15)
+        time.sleep(0.2)
     
     # Final static display
     print("\n\n" + "="*80)
     print("  ✓ Demo Complete!")
-    print("  Chart shows thread utilization throughout entire execution.")
-    print("  Notice the smooth Braille curves and colored timeline! ✨")
+    print("  Notice how multiple operation types run in parallel!")
+    print("  The chart stacks them to show concurrent activity. ✨")
     print("="*80 + "\n")
 
 
 if __name__ == "__main__":
     try:
-        demo_thread_chart()
+        demo_parallel_operations()
     except KeyboardInterrupt:
         print("\n\nDemo interrupted. Goodbye! 👋\n")
