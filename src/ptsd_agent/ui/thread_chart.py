@@ -92,12 +92,6 @@ class ThreadChartRenderer:
     
     def add_data_point(self, operations: Dict[OperationType, int]):
         """Add data point."""
-        # DEBUG: Log what data we're receiving
-        import sys
-        total = sum(operations.values()) if operations else 0
-        ops_str = ', '.join(f"{k.value}:{v}" for k, v in operations.items()) if operations else "none"
-        print(f"\n[CHART DEBUG] Adding data point: {ops_str} (total={total})", file=sys.stderr, flush=True)
-        
         point = DataPoint(
             timestamp=time.time(),
             operations=operations
@@ -165,10 +159,13 @@ class ThreadChartRenderer:
         if not self.downsampled_data:
             return ""
         
-        # DEBUG: Log chart state
-        import sys
-        print(f"\n[CHART DEBUG] Rendering: {len(self.timeline_data)} data points, {len(self.downsampled_data)} downsampled", file=sys.stderr, flush=True)
-        print(f"[CHART DEBUG] Chart width: {self.chart_width}, Terminal width: {self.terminal_width}", file=sys.stderr, flush=True)
+        # Ensure chart extends to fill terminal width
+        # Pad with empty data points if needed
+        while len(self.downsampled_data) < self.chart_width:
+            self.downsampled_data.append(DataPoint(
+                timestamp=time.time(),
+                operations={}
+            ))
         
         self.frame_count += 1  # For blinking effect
         
