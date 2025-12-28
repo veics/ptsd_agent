@@ -1059,8 +1059,9 @@ def main():
     # Start animation thread AFTER initial render is complete
     animation_thread = threading.Thread(target=animation_loop, daemon=True)
     animation_thread.start()
-        
-    # Execution loop
+    
+    try:
+        # Execution loop
     total_comps = sum(len(phase_configs[p]["components"]) for p in active_phases) or 1
     comps_finished_ref = [0]
 
