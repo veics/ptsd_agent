@@ -690,6 +690,19 @@ class ProgressiveDisplay:
         # Render thread chart RIGHT ABOVE bottom bar
         if self.thread_chart_enabled and self.thread_chart:
             try:
+                # Capture current thread state from pool (if available)
+                if hasattr(self, 'thread_pool') and self.thread_pool:
+                    # Get active operations by type
+                    ops_by_type = {}
+                    with self.thread_pool.active_lock:
+                        for op in self.thread_pool.active_operations.values():
+                            op_type = op.operation_type
+                            ops_by_type[op_type] = ops_by_type.get(op_type, 0) + 1
+                    
+                    # Add current state to chart
+                    self.thread_chart.add_data_point(ops_by_type)
+                
+                # Render the chart
                 chart_output = self.thread_chart.render()
                 if chart_output:
                     self.add_line(chart_output)

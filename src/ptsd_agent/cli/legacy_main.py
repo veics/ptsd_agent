@@ -721,9 +721,10 @@ def main():
     )
     
     display = ProgressiveDisplay("RAGE", collector=collector)
-    # Give display reference to thread chart
+    # Give display reference to thread chart AND thread pool
     display.thread_chart = thread_chart
     display.thread_chart_enabled = True
+    display.thread_pool = thread_pool  # For continuous tracking
     
     logger = MetricsLogger()
     
