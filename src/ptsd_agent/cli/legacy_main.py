@@ -734,10 +734,15 @@ def main():
             collector, 
             coverage_temp_dir=args.coverage_temp_dir,
             coverage_storage_dir=coverage_storage_dir,
-            run_id=run_id
+            run_id=run_id,
+            thread_pool=thread_pool
         )
     else:
-        executor = TestExecutor(collector, coverage_temp_dir=args.coverage_temp_dir)
+        executor = TestExecutor(
+            collector, 
+            coverage_temp_dir=args.coverage_temp_dir,
+            thread_pool=thread_pool
+        )
     
     render_lock = threading.Lock()
     
