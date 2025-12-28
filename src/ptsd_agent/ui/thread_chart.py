@@ -1,11 +1,11 @@
-"""Stunning thread chart with colored timeline axis.
+"""Stunning thread chart with Braille curves and background colors.
 
-The bottom axis itself becomes a beautiful visualization showing
-operation types over time with smooth color transitions!
+Inspired by terminal analytics design - uses smooth Braille characters
+with background colors for an elegant, modern visualization.
 """
 
 import time
-from typing import List
+from typing import List, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
@@ -28,34 +28,52 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders stunning thread chart with colored timeline."""
+    """Renders stunning thread chart with Braille curves."""
     
-    # Gradient characters
-    GRADIENT_CHARS = ['░', '▒', '▓', '█']
-    
-    # ANSI 256-color codes for smooth gradients
-    COLOR_GRADIENTS = {
-        OperationType.DISCOVERY: ['\033[38;5;27m', '\033[38;5;33m', '\033[38;5;39m', '\033[38;5;45m'],
-        OperationType.EXECUTION: ['\033[38;5;28m', '\033[38;5;34m', '\033[38;5;40m', '\033[38;5;46m'],
-        OperationType.AI_ANALYSIS: ['\033[38;5;136m', '\033[38;5;142m', '\033[38;5;148m', '\033[38;5;154m'],
-        OperationType.AUTO_FIX: ['\033[38;5;124m', '\033[38;5;160m', '\033[38;5;196m', '\033[38;5;202m'],
-        OperationType.CACHE: ['\033[38;5;30m', '\033[38;5;36m', '\033[38;5;42m', '\033[38;5;48m'],
+    # Braille patterns for smooth curves
+    BRAILLE_CURVES = {
+        'top': '⠶',
+        'rise_start': '⢠⠋',
+        'rise_mid': '⣠⠃⠚',
+        'rise_strong': '⡏⠁⠂',
+        'baseline': '⠒',
+        'peak': '⠉⠁',
+        'fall': '⠈⠉',
     }
     
-    # Solid colors for timeline
-    TIMELINE_COLORS = {
-        OperationType.DISCOVERY: '\033[48;5;33m',     # Blue background
-        OperationType.EXECUTION: '\033[48;5;34m',     # Green background
-        OperationType.AI_ANALYSIS: '\033[48;5;142m',  # Yellow background
-        OperationType.AUTO_FIX: '\033[48;5;160m',     # Red background
-        OperationType.CACHE: '\033[48;5;36m',         # Cyan background
+    # Background fill characters
+    FILL_CHARS = {
+        'light': '░',
+        'medium': '▒',
+        'heavy': '▓',
+    }
+    
+    # Color schemes (softer, more elegant)
+    COLORS = {
+        OperationType.DISCOVERY: {
+            'fg': '\033[38;5;110m',      # Soft blue
+            'bg': '\033[48;5;17m',        # Dark blue bg
+        },
+        OperationType.EXECUTION: {
+            'fg': '\033[38;5;108m',       # Soft green
+            'bg': '\033[48;5;22m',        # Dark green bg
+        },
+        OperationType.AI_ANALYSIS: {
+            'fg': '\033[38;5;180m',       # Soft yellow
+            'bg': '\033[48;5;94m',        # Dark yellow bg
+        },
+        OperationType.AUTO_FIX: {
+            'fg': '\033[38;5;174m',       # Soft red
+            'bg': '\033[48;5;52m',        # Dark red bg
+        },
+        OperationType.CACHE: {
+            'fg': '\033[38;5;109m',       # Soft cyan
+            'bg': '\033[48;5;23m',        # Dark cyan bg
+        },
     }
     
     RESET = '\033[0m'
-    DIM = '\033[2m'
-    BOLD = '\033[1m'
-    GRAY = '\033[1;30m'
-    WHITE = '\033[97m'
+    GRAY = '\033[38;5;240m'
     
     def __init__(self, max_threads: int = 12, terminal_width: int = 80, height: int = 5):
         """Initialize chart renderer."""
@@ -76,28 +94,48 @@ class ThreadChartRenderer:
         )
         self.timeline_data.append(point)
     
-    def _get_char_for_level(self, idx: int, value: float, level_min: float, level_max: float, op_type: OperationType) -> str:
-        """Get character for this position and level."""
+    def _get_braille_segment(self, idx: int, value: float, level_min: float, level_max: float, op_type: OperationType) -> str:
+        """Get beautiful Braille segment with background color."""
+        colors = self.COLORS.get(op_type, self.COLORS[OperationType.CACHE])
+        
         if value <= level_min:
             return ' '
         elif value >= level_max:
-            color = self.COLOR_GRADIENTS[op_type][-1]
-            return color + self.GRADIENT_CHARS[-1] + self.RESET
+            # Full fill with background color
+            return colors['bg'] + colors['fg'] + self.FILL_CHARS['heavy'] + self.RESET
         else:
+            # Partial fill - gradient
             ratio = (value - level_min) / (level_max - level_min)
             
-            char_index = int(ratio * len(self.GRADIENT_CHARS))
-            char_index = min(char_index, len(self.GRADIENT_CHARS) - 1)
-            char = self.GRADIENT_CHARS[char_index]
+            if ratio < 0.33:
+                char = self.FILL_CHARS['light']
+            elif ratio < 0.67:
+                char = self.FILL_CHARS['medium']
+            else:
+                char = self.FILL_CHARS['heavy']
             
-            color_index = int(ratio * len(self.COLOR_GRADIENTS[op_type]))
-            color_index = min(color_index, len(self.COLOR_GRADIENTS[op_type]) - 1)
-            color = self.COLOR_GRADIENTS[op_type][color_index]
-            
-            return color + char + self.RESET
+            return colors['bg'] + colors['fg'] + char + self.RESET
+    
+    def _detect_edge(self, idx: int, downsampled: List[DataPoint], level_min: float, level_max: float) -> Tuple[bool, str]:
+        """Detect if this is a rising/falling edge and return Braille character."""
+        if idx == 0 or idx >= len(downsampled) - 1:
+            return False, ''
+        
+        curr = downsampled[idx].active_threads
+        prev = downsampled[idx - 1].active_threads
+        
+        # Rising edge entering this level
+        if prev < level_min and curr >= level_min:
+            return True, '⣠'
+        
+        # Falling edge leaving this level  
+        if prev >= level_max and curr < level_max:
+            return True, '⠹⣄'
+        
+        return False, ''
     
     def render(self) -> str:
-        """Render stunning thread chart with colored timeline."""
+        """Render stunning Braille curve chart."""
         if not self.timeline_data:
             return ""
         
@@ -122,37 +160,35 @@ class ThreadChartRenderer:
             line = label + " "
             
             for idx, point in enumerate(downsampled):
-                char = self._get_char_for_level(idx, point.active_threads, level_min, level_max, point.operation_type)
-                line += char
+                seg = self._get_braille_segment(idx, point.active_threads, level_min, level_max, point.operation_type)
+                line += seg
             
             lines.append(line)
         
-        # Beautiful colored timeline axis!
+        # Beautiful colored timeline axis
         timeline_line = f"{self.GRAY}    ┗━━{self.RESET}"
         
         prev_op = None
         for idx, point in enumerate(downsampled):
-            # Add delimiter when operation type changes
             if prev_op and prev_op != point.operation_type:
                 timeline_line += self.RESET + self.GRAY + "╸" + self.RESET
             
-            # Colored timeline segment
-            color = self.TIMELINE_COLORS.get(point.operation_type, '')
-            timeline_line += color + " " + self.RESET
+            colors = self.COLORS.get(point.operation_type, self.COLORS[OperationType.CACHE])
+            timeline_line += colors['bg'] + " " + self.RESET
             
             prev_op = point.operation_type
         
         timeline_line += self.GRAY + "┛" + self.RESET
         lines.append(timeline_line)
         
-        # Time labels with tick marks
+        # Time labels
         total_time = time.time() - self.start_time
         tick_interval = max(int(self.chart_width / 8), 8)
         
         time_labels = "      "
         for i in range(0, self.chart_width, tick_interval):
             time_sec = int((i / self.chart_width) * total_time)
-            time_labels += f"{self.DIM}{time_sec:02d}     {self.RESET}"
+            time_labels += f"{self.GRAY}{time_sec:02d}     {self.RESET}"
         
         lines.append(time_labels)
         
