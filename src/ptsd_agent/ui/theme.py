@@ -120,5 +120,7 @@ def get_progress_bar_config():
         "empty_char": "▱",
         "filled_color": CYAN,  # Color for filled portion
         "empty_color": GRAY,    # Color for empty portion
-        "blink_color": ORANGE   # Color for blinking/active portion
+        "blink_color": ORANGE,   # Color for blinking/active portion
+        "blink_count": 3,        # Number of blinking segments
+        "show_brackets": True    # Whether to wrap bar in []
     }
