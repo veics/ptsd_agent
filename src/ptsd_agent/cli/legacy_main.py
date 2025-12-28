@@ -1058,9 +1058,27 @@ def main():
                 render_all()
             time.sleep(0.1)  # 100ms refresh rate
     
-    # Phase 2 optimization: Discovery handled by executor.discover_all_components()
-    # Orphaned discovery UI code removed (ui.discovery module doesn't exist)
-    # Test execution continues below with Phase 1+2 features displayed
+    # Phase 2: Fast Test Estimation
+    if args.discover or args.run_tests:
+        from ptsd_agent.discovery.fast_counter import FastTestCounter
+        counter = FastTestCounter()
+        
+        # Count tests for all active components
+        for p_id in active_phases:
+             config = phase_configs[p_id]
+             testable_comps = config.get("components", [])
+             for c_name in testable_comps:
+                 test_path = project_config.get_component_test_path(p_id, c_name)
+                 if test_path and Path(test_path).exists():
+                     if Path(test_path).is_file():
+                         count = counter.count_tests_in_file(Path(test_path))
+                         file_count = 1
+                     else:
+                         file_count, count = counter.get_summary(Path(test_path))
+                     
+                     # Update collector
+                     collector.set_discovered_total(c_name, count)
+                     collector.set_file_stats(c_name, file_count, count)
     
     # Prepare for dynamic UI
     import shutil
