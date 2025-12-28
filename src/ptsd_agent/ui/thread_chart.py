@@ -1,10 +1,7 @@
-"""Professional thread utilization chart with gradient shading and axes.
+"""Professional thread utilization chart with color gradients.
 
-Shows thread activity throughout execution with:
-- Y-axis labels (thread count)
-- X-axis labels (time markers)
-- Gradient block shading (░▒▓)
-- Smooth Braille baseline
+Shows thread activity with smooth color gradients that fade
+based on thread intensity, creating an elegant visualization.
 """
 
 import time
@@ -31,24 +28,22 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders professional thread chart with gradient shading."""
+    """Renders professional thread chart with color gradients."""
     
-    # Block shading characters (light to heavy)
-    SHADE_CHARS = ['░', '▒', '▓', '█']
+    # Gradient characters (light to heavy)
+    GRADIENT_CHARS = ['░', '▒', '▓', '█']
     
-    # Braille for smooth baseline
-    BRAILLE_CHARS = [' ', '⠁', '⠃', '⠇', '⠏', '⠟', '⠿', '⣿']
-    
-    # ANSI color codes
-    COLORS = {
-        OperationType.DISCOVERY: '\033[34m',     # Blue
-        OperationType.EXECUTION: '\033[32m',     # Green  
-        OperationType.AI_ANALYSIS: '\033[33m',   # Yellow
-        OperationType.AUTO_FIX: '\033[31m',      # Red
-        OperationType.CACHE: '\033[36m',         # Cyan
+    # ANSI 256-color codes for smooth gradients
+    # Each operation type has a gradient from light to dark
+    COLOR_GRADIENTS = {
+        OperationType.DISCOVERY: ['\033[38;5;27m', '\033[38;5;33m', '\033[38;5;39m', '\033[38;5;45m'],  # Blue gradient
+        OperationType.EXECUTION: ['\033[38;5;28m', '\033[38;5;34m', '\033[38;5;40m', '\033[38;5;46m'],  # Green gradient
+        OperationType.AI_ANALYSIS: ['\033[38;5;136m', '\033[38;5;142m', '\033[38;5;148m', '\033[38;5;154m'],  # Yellow gradient
+        OperationType.AUTO_FIX: ['\033[38;5;124m', '\033[38;5;160m', '\033[38;5;196m', '\033[38;5;202m'],  # Red gradient
+        OperationType.CACHE: ['\033[38;5;30m', '\033[38;5;36m', '\033[38;5;42m', '\033[38;5;48m'],  # Cyan gradient
     }
+    
     RESET = '\033[0m'
-    BOLD = '\033[1m'
     DIM = '\033[2m'
     
     def __init__(self, max_threads: int = 12, terminal_width: int = 80, height: int = 5):
@@ -82,30 +77,42 @@ class ThreadChartRenderer:
         )
         self.timeline_data.append(point)
     
-    def _get_shade_char(self, value: float, level_min: float, level_max: float) -> str:
-        """Get shading character for value at this level.
+    def _get_gradient_char(self, value: float, level_min: float, level_max: float, op_type: OperationType) -> str:
+        """Get gradient character with color for value at this level.
         
         Args:
             value: Thread count
             level_min: Minimum threads for this level
             level_max: Maximum threads for this level
+            op_type: Operation type for color selection
         
         Returns:
-            Shade character or space
+            Colored gradient character or space
         """
         if value <= level_min:
             return ' '
         elif value >= level_max:
-            return self.SHADE_CHARS[-1]  # Full block
+            # Full intensity - darkest color, heaviest char
+            color = self.COLOR_GRADIENTS[op_type][-1]
+            return color + self.GRADIENT_CHARS[-1] + self.RESET
         else:
             # Gradient based on how far into this level
             ratio = (value - level_min) / (level_max - level_min)
-            index = int(ratio * len(self.SHADE_CHARS))
-            index = min(index, len(self.SHADE_CHARS) - 1)
-            return self.SHADE_CHARS[index]
+            
+            # Select character based on ratio
+            char_index = int(ratio * len(self.GRADIENT_CHARS))
+            char_index = min(char_index, len(self.GRADIENT_CHARS) - 1)
+            char = self.GRADIENT_CHARS[char_index]
+            
+            # Select color based on ratio (lighter for lower intensity)
+            color_index = int(ratio * len(self.COLOR_GRADIENTS[op_type]))
+            color_index = min(color_index, len(self.COLOR_GRADIENTS[op_type]) - 1)
+            color = self.COLOR_GRADIENTS[op_type][color_index]
+            
+            return color + char + self.RESET
     
     def render(self) -> str:
-        """Render professional thread chart.
+        """Render professional thread chart with gradients.
         
         Returns:
             Multi-line chart with axes
@@ -126,7 +133,7 @@ class ThreadChartRenderer:
             level_max = (level_idx + 1) * threads_per_level
             level_min = level_idx * threads_per_level
             
-            # Y-axis label (show max threads for top levels)
+            # Y-axis label
             if level_idx == self.height - 1:
                 label = f"{int(self.max_threads):3d}"
             elif level_idx == 0:
@@ -134,18 +141,12 @@ class ThreadChartRenderer:
             else:
                 label = f" {int(level_max):2d}"
             
-            # Build line
+            # Build line with gradient
             line = f"{label} ┃ "
             
             for point in downsampled:
-                char = self._get_shade_char(point.active_threads, level_min, level_max)
-                
-                # Color based on operation type
-                if char != ' ':
-                    color = self.COLORS.get(point.operation_type, self.RESET)
-                    line += color + char + self.RESET
-                else:
-                    line += char
+                char = self._get_gradient_char(point.active_threads, level_min, level_max, point.operation_type)
+                line += char
             
             lines.append(line)
         
@@ -153,7 +154,7 @@ class ThreadChartRenderer:
         x_axis = "    ┗" + "━" * self.chart_width
         lines.append(x_axis)
         
-        # X-axis time labels (every ~5-10 chars)
+        # X-axis time labels
         total_time = time.time() - self.start_time
         label_interval = max(int(self.chart_width / 10), 5)
         
