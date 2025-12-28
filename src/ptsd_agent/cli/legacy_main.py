@@ -1132,23 +1132,8 @@ def main():
         # Log results
         logger.log_snapshot(summary, collector.components)
         
-        # Exit alternate screen and print final UI state to history
-        display.terminal.exit_alternate_screen()
-        
-        # Print the final UI state that was in alternate screen (for terminal history)
-        final_ui = display.get_last_output()
-        if final_ui:
-            print(final_ui)
-            print()  # Extra blank line
-        
-        # Print completion summary
-        from ptsd_agent.ui.theme import CYAN, BOLD, RESET, DIM
-        print(f"{BOLD}{CYAN}{'=' * 80}{RESET}")
-        print(f"{BOLD}Test Execution Complete{RESET}")
-        print(f"{CYAN}{'=' * 80}{RESET}")
-        print()
-        print(f"{DIM}Run saved to history{RESET}")
-        print()
+        # Alternate screen disabled - in-place rendering used instead
+        # Final state is already visible in terminal
         
         # Save run history (JSON + SQLite)
         from ptsd_agent.storage.legacy_history import get_history_store
