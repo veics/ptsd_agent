@@ -65,14 +65,23 @@ class ThreadChartRenderer:
     
     # Curve spacing removed - not needed for new design
     
-    def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 5):
-        """Initialize chart renderer."""
+    def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 5, use_advanced_lut: bool = False):
+        """Initialize chart renderer.
+        
+        Args:
+            max_threads: Maximum thread count
+            terminal_width: Terminal width (auto-detect if None)
+            height: Number of vertical levels to display
+            use_advanced_lut: If True, use full LUT for operations (slower, smoother)
+                            If False, use LUT only for curve (faster, good enough)
+        """
         if terminal_width is None:
             import shutil
             terminal_width = shutil.get_terminal_size().columns
         self.max_threads = max_threads
         self.terminal_width = terminal_width
         self.height = height
+        self.use_advanced_lut = use_advanced_lut  # Toggle LUT mode
         # Y-axis: "  12 ┃" = 5 chars
         self.chart_width = terminal_width - 5
         
@@ -237,13 +246,34 @@ class ThreadChartRenderer:
                     line += " "
                     continue
                 
-                # TOP LEVEL - CONTINUOUS YELLOW CURVE
+                # TOP LEVEL - CONTINUOUS YELLOW CURVE with LUT smoothing
                 if level_idx == 0:
-                    sparse_char = self.SPARSE_CHARS[i % len(self.SPARSE_CHARS)]
-                    if total > 0:
-                        line += self.YELLOW + sparse_char + self.RESET
+                    if i == 0:
+                        # First column: use sparse character
+                        sparse_char = self.SPARSE_CHARS[0]
+                        if total > 0:
+                            line += self.YELLOW + sparse_char + self.RESET
+                        else:
+                            line += " "
                     else:
-                        line += " "
+                        # Use LUT for smooth curve transitions
+                        prev_total = self.downsampled_data[i-1].total_threads
+                        curr_total = total
+                        
+                        # Normalize to sub-dot resolution (0 to max_threads * 4)
+                        y1 = (prev_total / self.max_threads) * self.height * 4
+                        y2 = (curr_total / self.max_threads) * self.height * 4
+                        
+                        # Top row covers height range [(height-1)*4, height*4]
+                        row_bottom = (self.height - 1) * 4
+                        row_top = self.height * 4
+                        
+                        # Get smooth LUT character
+                        char = self._get_lut_char(y1, y2, row_bottom, row_top)
+                        if char != self.LUT[0][0]:  # Not empty
+                            line += self.YELLOW + char + self.RESET
+                        else:
+                            line += " "
                 else:
                     # Get color for this level
                     color, op = get_operation_color(point.operations, level)
@@ -256,9 +286,9 @@ class ThreadChartRenderer:
                                 self.downsampled_data[i-1].operations, level
                             )
                         
-                        # Crisp edge at transition
+                        # Crisp edge at transition - use consistent LUT edge char
                         if prev_op and prev_op != op:
-                            line += color + self.EDGE_CHAR + self.RESET
+                            line += color + self.LUT[1][4] + self.RESET  # '⣸' crisp edge
                         else:
                             # Full block
                             line += color + self.FULL_BLOCK + self.RESET
