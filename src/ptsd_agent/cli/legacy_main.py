@@ -1127,7 +1127,12 @@ def main():
         time.sleep(0.15)  # Wait for animation thread to exit
         state["mode"] = "completed"
         summary = collector.get_summary()
-        state["overall_progress"] = 100  # 100% complete when all tests finish
+        
+        # Set all phase and project progress to 100% when complete
+        for p_id in active_phases:
+            state["phases"][p_id]["progress"] = 100
+        state["overall_progress"] = 100
+        
         render_all()
         
         # Log results
