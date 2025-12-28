@@ -1,11 +1,10 @@
-"""Minimalistic thread utilization chart for PTSD Agent.
+"""Minimalistic multi-line thread utilization chart for PTSD Agent.
 
 Shows thread activity throughout entire execution as a compact,
-single-line visualization at the top of the display.
+multi-line vertical graph at the top of the display.
 """
 
 import time
-from collections import deque
 from typing import List
 from dataclasses import dataclass
 from enum import Enum
@@ -29,7 +28,7 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders minimalistic thread utilization chart."""
+    """Renders minimalistic multi-line thread utilization chart."""
     
     # Braille Unicode patterns for smooth curves
     BRAILLE_CHARS = [' ', '⠁', '⠃', '⠇', '⠏', '⠟', '⠿', '⣿']
@@ -43,16 +42,19 @@ class ThreadChartRenderer:
         OperationType.CACHE: '\033[36m',        # Cyan
     }
     RESET = '\033[0m'
+    GRAY = '\033[90m'
     
-    def __init__(self, max_threads: int = 12, terminal_width: int = 80):
+    def __init__(self, max_threads: int = 12, terminal_width: int = 80, height: int = 5):
         """Initialize chart renderer.
         
         Args:
             max_threads: Maximum number of threads
             terminal_width: Width of terminal
+            height: Height in lines (default 5 for minimalism)
         """
         self.max_threads = max_threads
         self.terminal_width = terminal_width
+        self.height = height
         
         # Full timeline data (entire execution)
         self.timeline_data: List[DataPoint] = []
@@ -74,28 +76,41 @@ class ThreadChartRenderer:
         
         self.timeline_data.append(point)
     
-    def _get_braille_char(self, value: float, max_value: float) -> str:
-        """Convert value to Braille character.
+    def _get_braille_for_level(self, value: float, level: int) -> str:
+        """Get Braille character for specific vertical level.
         
         Args:
-            value: Current value
-            max_value: Maximum value for normalization
+            value: Thread count (0-max_threads)
+            level: Vertical level (0=bottom, height-1=top)
         
         Returns:
-            Unicode Braille character
+            Braille character for this level
         """
-        if value <= 0:
-            return ' '
+        # Calculate threshold for this level (upside down)
+        # Level 0 (bottom) = 0-20% of max
+        # Level 1 = 20-40%
+        # etc.
+        level_ratio = (self.height - level - 1) / self.height
+        next_level_ratio = (self.height - level) / self.height
         
-        ratio = min(value / max_value, 1.0)
-        index = int(ratio * (len(self.BRAILLE_CHARS) - 1))
-        return self.BRAILLE_CHARS[index]
+        min_threshold = level_ratio * self.max_threads
+        max_threshold = next_level_ratio * self.max_threads
+        
+        if value >= max_threshold:
+            return self.BRAILLE_CHARS[-1]  # Full
+        elif value <= min_threshold:
+            return ' '  # Empty
+        else:
+            # Partial fill
+            ratio = (value - min_threshold) / (max_threshold - min_threshold)
+            index = int(ratio * (len(self.BRAILLE_CHARS) - 1))
+            return self.BRAILLE_CHARS[index]
     
     def render(self) -> str:
-        """Render minimalistic thread chart.
+        """Render multi-line thread chart.
         
         Returns:
-            Single compact line showing thread utilization
+            Multi-line chart (height lines)
         """
         if not self.timeline_data:
             return ""
@@ -103,14 +118,18 @@ class ThreadChartRenderer:
         # Downsample to terminal width
         downsampled = self._downsample_data(self.timeline_data, self.terminal_width)
         
-        # Build chart line
-        chart_line = ""
-        for point in downsampled:
-            char = self._get_braille_char(point.active_threads, self.max_threads)
-            color = self.COLORS.get(point.operation_type, self.RESET)
-            chart_line += color + char + self.RESET
+        lines = []
         
-        return chart_line
+        # Build chart from top to bottom (upside down)
+        for level in range(self.height - 1, -1, -1):
+            line = ""
+            for point in downsampled:
+                char = self._get_braille_for_level(point.active_threads, level)
+                color = self.COLORS.get(point.operation_type, self.RESET)
+                line += color + char + self.RESET
+            lines.append(line)
+        
+        return '\n'.join(lines)
     
     def render_realtime_chart(self) -> str:
         """Render chart (alias for render()).
