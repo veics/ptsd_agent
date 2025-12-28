@@ -163,10 +163,11 @@ class ThreadChartRenderer:
                     if connection:
                         line += connection
                     else:
-                        # Draw colored bands (with spacing below curve)
+                        # Draw colored bands - each execution type as separate band
                         cumulative = 0
                         drawn = False
                         
+                        # Stack from bottom to top: Discovery, Execution, AI, Fix, Cache
                         for op_type in [OperationType.DISCOVERY, OperationType.EXECUTION, 
                                        OperationType.AI_ANALYSIS, OperationType.AUTO_FIX, 
                                        OperationType.CACHE]:
@@ -175,16 +176,20 @@ class ThreadChartRenderer:
                             
                             thread_count = point.operations[op_type]
                             op_bottom = cumulative
+                            # Respect spacing below curve
                             op_top = min(cumulative + thread_count, band_max)
                             cumulative += thread_count
                             
+                            # Check if this execution type's band is at this level
                             if op_bottom < level_max and op_top > level_min:
+                                # This level shows this execution type's colored band
                                 color = self.FG_COLORS.get(op_type, '')
                                 line += color + self.DENSE_BLOCK + self.RESET
                                 drawn = True
                                 break
                         
                         if not drawn:
+                            # Gray baseline at bottom
                             if level_idx == 0:
                                 line += self.GRAY_FILLED + self.DENSE_BLOCK + self.RESET
                             else:
