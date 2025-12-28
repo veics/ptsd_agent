@@ -1,9 +1,9 @@
-"""Final complete design with connected curve line.
+"""Final design with prominent curve line.
 
-Beautiful three-layer visualization:
-- Connected curve line on top (sparse dots with connections)
-- Colored horizontal bands showing execution types
-- Gray filled baseline
+Three-layer visualization:
+- Prominent connected curve line (denser patterns)
+- Colored horizontal bands
+- Gray baseline
 """
 
 import time
@@ -33,12 +33,12 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders chart with connected curve line and colored bands."""
+    """Renders chart with prominent curve line."""
     
-    # Sparse curve patterns
-    SPARSE_CURVE = ['⠀', '⠁', '⠂', '⠃', '⠄', '⠅', '⠆', '⠇']
+    # More prominent curve patterns (denser dots)
+    PROMINENT_CURVE = ['⠀', '⠄', '⠤', '⠦', '⠶', '⠷', '⠿', '⣀', '⣄', '⣤', '⣦', '⣶', '⣷', '⣿']
     
-    # Connection patterns (horizontal lines)
+    # Connection patterns
     CONNECTIONS = ['⠤', '⠶', '⠿']
     
     # Dense block
@@ -78,17 +78,17 @@ class ThreadChartRenderer:
         )
         self.timeline_data.append(point)
     
-    def _get_sparse_curve_char(self, value: float) -> str:
-        """Get sparse curve character."""
+    def _get_prominent_curve_char(self, value: float) -> str:
+        """Get prominent curve character."""
         if value <= 0:
-            return self.SPARSE_CURVE[0]
+            return self.PROMINENT_CURVE[0]
         
         ratio = min(value / self.max_threads, 1.0)
-        idx = int(ratio * (len(self.SPARSE_CURVE) - 1))
-        return self.SPARSE_CURVE[idx]
+        idx = int(ratio * (len(self.PROMINENT_CURVE) - 1))
+        return self.PROMINENT_CURVE[idx]
     
     def _get_curve_level(self, point_value: float) -> int:
-        """Get which level the curve is at for this value."""
+        """Get which level the curve is at."""
         if point_value <= 0:
             return -1
         
@@ -97,28 +97,27 @@ class ThreadChartRenderer:
         return min(level, self.height - 1)
     
     def _is_connecting_line(self, level_idx: int, col_idx: int) -> Optional[str]:
-        """Check if we should draw a connecting line here."""
+        """Check if we should draw a connecting line."""
         if col_idx >= len(self.downsampled_data):
             return None
         
         curr_point = self.downsampled_data[col_idx]
         curr_level = self._get_curve_level(curr_point.total_threads)
         
-        # Check previous point
         if col_idx > 0:
             prev_point = self.downsampled_data[col_idx - 1]
             prev_level = self._get_curve_level(prev_point.total_threads)
             
-            # Draw horizontal connection if we're between curve points at same level
+            # Draw connection if between points at same level
             if prev_level == curr_level == level_idx:
                 if curr_point.operations:
                     dominant_op = max(curr_point.operations.items(), key=lambda x: x[1])[0]
-                    return self.FG_COLORS.get(dominant_op, '') + self.CONNECTIONS[0] + self.RESET
+                    return self.FG_COLORS.get(dominant_op, '') + self.CONNECTIONS[1] + self.RESET
         
         return None
     
     def render(self) -> str:
-        """Render complete chart with connected curve line."""
+        """Render chart with prominent curve."""
         if not self.timeline_data:
             return ""
         
@@ -127,7 +126,6 @@ class ThreadChartRenderer:
         lines = []
         threads_per_level = self.max_threads / self.height
         
-        # Render from top to bottom
         for level_idx in range(self.height - 1, -1, -1):
             level_max = (level_idx + 1) * threads_per_level
             level_min = level_idx * threads_per_level
@@ -145,10 +143,10 @@ class ThreadChartRenderer:
             for col_idx, point in enumerate(self.downsampled_data):
                 curve_level = self._get_curve_level(point.total_threads)
                 
-                # Check if curve dot should be drawn here
+                # Check if curve dot should be drawn
                 if curve_level == level_idx:
-                    # Draw sparse curve dot
-                    dot = self._get_sparse_curve_char(point.total_threads)
+                    # Draw prominent curve dot
+                    dot = self._get_prominent_curve_char(point.total_threads)
                     if point.operations:
                         dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
                         color = self.FG_COLORS.get(dominant_op, '')
@@ -161,7 +159,7 @@ class ThreadChartRenderer:
                     if connection:
                         line += connection
                     else:
-                        # Draw colored horizontal bands
+                        # Draw colored bands
                         cumulative = 0
                         drawn = False
                         
