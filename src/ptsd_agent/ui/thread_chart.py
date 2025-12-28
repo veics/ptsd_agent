@@ -1,13 +1,13 @@
-"""Final design: Colored bands with sparse curve on top.
+"""Final complete design with connected curve line.
 
-Beautiful complete visualization:
-- Gray filled baseline
+Beautiful three-layer visualization:
+- Connected curve line on top (sparse dots with connections)
 - Colored horizontal bands showing execution types
-- Sparse 1-3 dot curve line floating on top
+- Gray filled baseline
 """
 
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 from enum import Enum
 
@@ -33,10 +33,13 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders chart with bands and curve."""
+    """Renders chart with connected curve line and colored bands."""
     
-    # Sparse curve patterns (1-3 dots)
+    # Sparse curve patterns
     SPARSE_CURVE = ['⠀', '⠁', '⠂', '⠃', '⠄', '⠅', '⠆', '⠇']
+    
+    # Connection patterns (horizontal lines)
+    CONNECTIONS = ['⠤', '⠶', '⠿']
     
     # Dense block
     DENSE_BLOCK = '⣿'
@@ -65,6 +68,7 @@ class ThreadChartRenderer:
         
         self.timeline_data: List[DataPoint] = []
         self.start_time = time.time()
+        self.downsampled_data: List[DataPoint] = []
     
     def add_data_point(self, operations: Dict[OperationType, int]):
         """Add data point."""
@@ -75,7 +79,7 @@ class ThreadChartRenderer:
         self.timeline_data.append(point)
     
     def _get_sparse_curve_char(self, value: float) -> str:
-        """Get sparse curve character (1-3 dots)."""
+        """Get sparse curve character."""
         if value <= 0:
             return self.SPARSE_CURVE[0]
         
@@ -83,20 +87,42 @@ class ThreadChartRenderer:
         idx = int(ratio * (len(self.SPARSE_CURVE) - 1))
         return self.SPARSE_CURVE[idx]
     
-    def _is_curve_level(self, level_idx: int, total_levels: int, point_value: float) -> bool:
-        """Check if curve should be drawn at this level."""
-        threads_per_level = self.max_threads / total_levels
-        level_max = (level_idx + 1) * threads_per_level
-        level_min = level_idx * threads_per_level
+    def _get_curve_level(self, point_value: float) -> int:
+        """Get which level the curve is at for this value."""
+        if point_value <= 0:
+            return -1
         
-        return level_min <= point_value < level_max
+        threads_per_level = self.max_threads / self.height
+        level = int(point_value / threads_per_level)
+        return min(level, self.height - 1)
+    
+    def _is_connecting_line(self, level_idx: int, col_idx: int) -> Optional[str]:
+        """Check if we should draw a connecting line here."""
+        if col_idx >= len(self.downsampled_data):
+            return None
+        
+        curr_point = self.downsampled_data[col_idx]
+        curr_level = self._get_curve_level(curr_point.total_threads)
+        
+        # Check previous point
+        if col_idx > 0:
+            prev_point = self.downsampled_data[col_idx - 1]
+            prev_level = self._get_curve_level(prev_point.total_threads)
+            
+            # Draw horizontal connection if we're between curve points at same level
+            if prev_level == curr_level == level_idx:
+                if curr_point.operations:
+                    dominant_op = max(curr_point.operations.items(), key=lambda x: x[1])[0]
+                    return self.FG_COLORS.get(dominant_op, '') + self.CONNECTIONS[0] + self.RESET
+        
+        return None
     
     def render(self) -> str:
-        """Render complete chart with bands and curve."""
+        """Render complete chart with connected curve line."""
         if not self.timeline_data:
             return ""
         
-        downsampled = self._downsample_data(self.timeline_data, self.chart_width)
+        self.downsampled_data = self._downsample_data(self.timeline_data, self.chart_width)
         
         lines = []
         threads_per_level = self.max_threads / self.height
@@ -116,10 +142,12 @@ class ThreadChartRenderer:
             
             line = label + " "
             
-            for point in downsampled:
-                # Check if sparse curve should be drawn here (priority)
-                if self._is_curve_level(level_idx, self.height, point.total_threads):
-                    # Draw sparse curve dot on top
+            for col_idx, point in enumerate(self.downsampled_data):
+                curve_level = self._get_curve_level(point.total_threads)
+                
+                # Check if curve dot should be drawn here
+                if curve_level == level_idx:
+                    # Draw sparse curve dot
                     dot = self._get_sparse_curve_char(point.total_threads)
                     if point.operations:
                         dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
@@ -128,44 +156,44 @@ class ThreadChartRenderer:
                     else:
                         line += dot
                 else:
-                    # Draw colored horizontal bands below curve
-                    cumulative = 0
-                    drawn = False
-                    
-                    # Stack operations in consistent order
-                    for op_type in [OperationType.DISCOVERY, OperationType.EXECUTION, 
-                                   OperationType.AI_ANALYSIS, OperationType.AUTO_FIX, 
-                                   OperationType.CACHE]:
-                        if op_type not in point.operations:
-                            continue
+                    # Check for connecting line
+                    connection = self._is_connecting_line(level_idx, col_idx)
+                    if connection:
+                        line += connection
+                    else:
+                        # Draw colored horizontal bands
+                        cumulative = 0
+                        drawn = False
                         
-                        thread_count = point.operations[op_type]
-                        op_bottom = cumulative
-                        op_top = cumulative + thread_count
-                        cumulative = op_top
+                        for op_type in [OperationType.DISCOVERY, OperationType.EXECUTION, 
+                                       OperationType.AI_ANALYSIS, OperationType.AUTO_FIX, 
+                                       OperationType.CACHE]:
+                            if op_type not in point.operations:
+                                continue
+                            
+                            thread_count = point.operations[op_type]
+                            op_bottom = cumulative
+                            op_top = cumulative + thread_count
+                            cumulative = op_top
+                            
+                            if op_bottom < level_max and op_top > level_min:
+                                color = self.FG_COLORS.get(op_type, '')
+                                line += color + self.DENSE_BLOCK + self.RESET
+                                drawn = True
+                                break
                         
-                        # Check if this band occupies this level
-                        if op_bottom < level_max and op_top > level_min:
-                            color = self.FG_COLORS.get(op_type, '')
-                            line += color + self.DENSE_BLOCK + self.RESET
-                            drawn = True
-                            break
-                    
-                    if not drawn:
-                        # Gray filled baseline
-                        if level_idx == 0:
-                            line += self.GRAY_FILLED + self.DENSE_BLOCK + self.RESET
-                        else:
-                            line += ' '
+                        if not drawn:
+                            if level_idx == 0:
+                                line += self.GRAY_FILLED + self.DENSE_BLOCK + self.RESET
+                            else:
+                                line += ' '
             
             lines.append(line)
         
         # Timeline axis
         timeline_line = f"{self.GRAY}    ┗━━{self.RESET}"
-        
-        for _ in downsampled:
+        for _ in self.downsampled_data:
             timeline_line += self.GRAY_FILLED + "━" + self.RESET
-        
         timeline_line += self.GRAY + "┛" + self.RESET
         lines.append(timeline_line)
         
