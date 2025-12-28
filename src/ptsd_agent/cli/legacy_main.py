@@ -924,7 +924,9 @@ def main():
             return
 
         c_state["status"] = "running"
-        # Progress calculated incrementally - don't reset to 0
+        # Initialize progress to 0 only if not set (don't reset existing progress)
+        if "progress" not in c_state or c_state["progress"] is None:
+            c_state["progress"] = 0
         c_state["current_test"] = f"Initializing..."
         render_all()
 
