@@ -1075,7 +1075,6 @@ def main():
     
     # Enter alternate screen for running tests UI
     display.terminal.enter_alternate_screen()
-    logger.info("Entered alternate screen for test execution")
         
     # Start animation thread AFTER initial render is complete
     animation_thread = threading.Thread(target=animation_loop, daemon=True)
@@ -1134,7 +1133,6 @@ def main():
         
         # All tests completed - exit alternate screen
         display.terminal.exit_alternate_screen()
-        logger.info("Exited alternate screen after test completion")
         
         # Print final summary to normal terminal (appears in scrollback history)
         from ptsd_agent.ui.theme import CYAN, GREEN, YELLOW, RED, GRAY, BOLD, RESET, DIM
