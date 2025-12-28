@@ -107,3 +107,13 @@ def get_color(color_name: str) -> str:
         "RESET": RESET
     }
     return colors.get(color_name.upper(), RESET)
+
+
+def get_progress_bar_config():
+    """Get progress bar configuration with colors."""
+    return {
+        "active_color": CYAN,
+        "inactive_color": GRAY,
+        "blinking_color": ORANGE,
+        "reset": RESET
+    }
