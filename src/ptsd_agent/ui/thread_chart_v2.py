@@ -1,6 +1,6 @@
-"""Version 1: Curve with spacing above bands for clarity.
+"""Version 2: Sparse dot line floating on top.
 
-Clear separation between curve line and colored bands.
+Simple sparse Braille dots forming a line above colored bands.
 """
 
 import time
@@ -29,14 +29,14 @@ class DataPoint:
         return sum(self.operations.values())
 
 
-class ThreadChartRenderer:
-    """Version 1: Spaced curve above bands."""
+class ThreadChartRendererV2:
+    """Version 2: Sparse dot line on top."""
     
-    # Prominent curve patterns
-    PROMINENT_CURVE = ['⠀', '⠄', '⠤', '⠦', '⠶', '⠷', '⠿', '⣀', '⣄', '⣤', '⣦', '⣶', '⣷', '⣿']
+    # Very sparse dots for line
+    SPARSE_DOTS = ['⠀', '⠁', '⠂', '⠃', '⠄', '⠅', '⠆', '⠇']
     
-    # Connection patterns
-    CONNECTIONS = ['⠶']
+    # Connection line
+    CONNECTION = '⠤'
     
     # Dense block
     DENSE_BLOCK = '⣿'
@@ -55,9 +55,6 @@ class ThreadChartRenderer:
     
     RESET = '\033[0m'
     GRAY = '\033[38;5;240m'
-    
-    # Spacing threshold (threads below curve)
-    CURVE_SPACING = 0.5  # Half a level spacing
     
     def __init__(self, max_threads: int = 12, terminal_width: int = 80, height: int = 5):
         """Initialize chart renderer."""
@@ -78,14 +75,14 @@ class ThreadChartRenderer:
         )
         self.timeline_data.append(point)
     
-    def _get_prominent_curve_char(self, value: float) -> str:
-        """Get prominent curve character."""
+    def _get_sparse_dot(self, value: float) -> str:
+        """Get sparse dot."""
         if value <= 0:
-            return self.PROMINENT_CURVE[0]
+            return self.SPARSE_DOTS[0]
         
         ratio = min(value / self.max_threads, 1.0)
-        idx = int(ratio * (len(self.PROMINENT_CURVE) - 1))
-        return self.PROMINENT_CURVE[idx]
+        idx = int(ratio * (len(self.SPARSE_DOTS) - 1))
+        return self.SPARSE_DOTS[idx]
     
     def _get_curve_level(self, point_value: float) -> int:
         """Get which level the curve is at."""
@@ -96,32 +93,18 @@ class ThreadChartRenderer:
         level = int(point_value / threads_per_level)
         return min(level, self.height - 1)
     
-    def _get_band_max_level(self, point_value: float) -> float:
-        """Get maximum level for bands (with spacing below curve)."""
-        threads_per_level = self.max_threads / self.height
-        return point_value - (self.CURVE_SPACING * threads_per_level)
-    
-    def _is_connecting_line(self, level_idx: int, col_idx: int) -> Optional[str]:
-        """Check if we should draw a connecting line."""
-        if col_idx >= len(self.downsampled_data):
-            return None
+    def _is_connecting_line(self, level_idx: int, col_idx: int) -> bool:
+        """Check if connecting line between dots."""
+        if col_idx >= len(self.downsampled_data) or col_idx == 0:
+            return False
         
-        curr_point = self.downsampled_data[col_idx]
-        curr_level = self._get_curve_level(curr_point.total_threads)
+        curr_level = self._get_curve_level(self.downsampled_data[col_idx].total_threads)
+        prev_level = self._get_curve_level(self.downsampled_data[col_idx - 1].total_threads)
         
-        if col_idx > 0:
-            prev_point = self.downsampled_data[col_idx - 1]
-            prev_level = self._get_curve_level(prev_point.total_threads)
-            
-            if prev_level == curr_level == level_idx:
-                if curr_point.operations:
-                    dominant_op = max(curr_point.operations.items(), key=lambda x: x[1])[0]
-                    return self.FG_COLORS.get(dominant_op, '') + self.CONNECTIONS[0] + self.RESET
-        
-        return None
+        return prev_level == curr_level == level_idx
     
     def render(self) -> str:
-        """Render chart with spaced curve."""
+        """Render chart with sparse dot line."""
         if not self.timeline_data:
             return ""
         
@@ -146,49 +129,51 @@ class ThreadChartRenderer:
             
             for col_idx, point in enumerate(self.downsampled_data):
                 curve_level = self._get_curve_level(point.total_threads)
-                band_max = self._get_band_max_level(point.total_threads)
                 
-                # Check if curve dot should be drawn
+                # Check if sparse dot should be drawn
                 if curve_level == level_idx:
-                    dot = self._get_prominent_curve_char(point.total_threads)
+                    dot = self._get_sparse_dot(point.total_threads)
                     if point.operations:
                         dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
                         color = self.FG_COLORS.get(dominant_op, '')
                         line += color + dot + self.RESET
                     else:
                         line += dot
-                else:
-                    # Check for connecting line
-                    connection = self._is_connecting_line(level_idx, col_idx)
-                    if connection:
-                        line += connection
+                elif self._is_connecting_line(level_idx, col_idx):
+                    # Draw connection
+                    if point.operations:
+                        dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
+                        color = self.FG_COLORS.get(dominant_op, '')
+                        line += color + self.CONNECTION + self.RESET
                     else:
-                        # Draw colored bands (with spacing below curve)
-                        cumulative = 0
-                        drawn = False
+                        line += self.CONNECTION
+                else:
+                    # Draw colored bands
+                    cumulative = 0
+                    drawn = False
+                    
+                    for op_type in [OperationType.DISCOVERY, OperationType.EXECUTION, 
+                                   OperationType.AI_ANALYSIS, OperationType.AUTO_FIX, 
+                                   OperationType.CACHE]:
+                        if op_type not in point.operations:
+                            continue
                         
-                        for op_type in [OperationType.DISCOVERY, OperationType.EXECUTION, 
-                                       OperationType.AI_ANALYSIS, OperationType.AUTO_FIX, 
-                                       OperationType.CACHE]:
-                            if op_type not in point.operations:
-                                continue
-                            
-                            thread_count = point.operations[op_type]
-                            op_bottom = cumulative
-                            op_top = min(cumulative + thread_count, band_max)
-                            cumulative += thread_count
-                            
-                            if op_bottom < level_max and op_top > level_min:
-                                color = self.FG_COLORS.get(op_type, '')
-                                line += color + self.DENSE_BLOCK + self.RESET
-                                drawn = True
-                                break
+                        thread_count = point.operations[op_type]
+                        op_bottom = cumulative
+                        op_top = cumulative + thread_count
+                        cumulative = op_top
                         
-                        if not drawn:
-                            if level_idx == 0:
-                                line += self.GRAY_FILLED + self.DENSE_BLOCK + self.RESET
-                            else:
-                                line += ' '
+                        if op_bottom < level_max and op_top > level_min:
+                            color = self.FG_COLORS.get(op_type, '')
+                            line +=color + self.DENSE_BLOCK + self.RESET
+                            drawn = True
+                            break
+                    
+                    if not drawn:
+                        if level_idx == 0:
+                            line += self.GRAY_FILLED + self.DENSE_BLOCK + self.RESET
+                        else:
+                            line += ' '
             
             lines.append(line)
         
