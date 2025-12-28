@@ -158,8 +158,13 @@ class ProgressiveDisplay:
         # Thread chart for performance visualization
         try:
             from .thread_chart import ThreadChartRenderer, OperationType
+            # Get max_workers from thread_pool if available, else default to 12
+            max_workers = 12
+            if hasattr(self, 'thread_pool') and self.thread_pool and hasattr(self.thread_pool, 'max_workers'):
+                max_workers = self.thread_pool.max_workers
+            
             self.thread_chart = ThreadChartRenderer(
-                max_threads=12, 
+                max_threads=max_workers, 
                 terminal_width=self.term_width
             )
             self.thread_chart_enabled = True
