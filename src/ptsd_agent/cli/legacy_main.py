@@ -1043,75 +1043,102 @@ def main():
         # Pre-discovery: Use fast regex-based test counting from discovery.py
         # This uses the same fast discovery as --discover mode
         # from ptsd_agent.ui.discovery import DiscoveryDisplay, count_tests_in_file, parallel_count_tests  # TODO: DISABLED
-        raise ImportError("Discovery module not found - skipping")  # Force skip
-        from os import scandir
+        pass  # Skip discovery - module not available
+    except (ImportError, NameError, AttributeError):
+        # Discovery display not available, skip
+        pass
+    
+    # Continue with test execution - Phase 1+2 features will display here
+    # (Discovery replaced with Phase 2 fast counting via FastTestCounter in executor)
+
+    
+    # Collect all test files from all components
+    all_test_files = []
+    component_file_map = {}  # Map file path to component name
+    
+    for p_id in active_phases:
+        p_state = state["phases"][p_id]
+        components = list(p_state["components"].keys())
+        for c_name in components:
+            # Skip discovery for Task Master components unless dev tests included
+            c_state = p_state["components"][c_name]
+            if c_state.get("taskmaster_component") and not args.include_dev:
+                continue
+                
+            test_path = project_config.get_component_test_path(p_id, c_name)
+            # Skip components with no test path (Task Master components)
+            if not test_path:
+                continue
+            path = Path(test_path)
+            if path.exists() and path.is_dir():
+                # Collect test files recursively using glob
+                for file_path in path.rglob('test_*.py'):
+                    if file_path.is_file():
+                        all_test_files.append(file_path)
+                        component_file_map[str(file_path)] = c_name
+    
+    # Track components with issues
+    empty_components = []
+    missing_paths = []
+    discovery_errors = []
+    
+    # Use fast parallel counting with progress display
+    total_files = len(all_test_files)
+    discovered_count = [0]
+    component_test_counts = {}  # component_name -> test_count
+    
+    def progress_callback(file_path, processed, total):
+        discovered_count[0] = processed
+        pct = (processed / total * 100) if total > 0 else 100
+        line = discovery_display.format_progress_line(file_path, pct, running=True)
+        sys.stdout.write(f"\r{line}")
+        sys.stdout.flush()
+    
+    if discovery_results is not None:
+        # Use results from the first discovery pass to avoid redundant scans and UI overlap
+        all_test_files = discovery_results.get('test_files', [])
+        file_test_counts = discovery_results.get('test_counts', {})
         
-        discovery_display = DiscoveryDisplay()
+        # Aggregate by component
+        for file_path, count in file_test_counts.items():
+            # categorization already happened, we can use simple lookup or re-find it
+            # For consistency with the existing loop below, we re-find the component
+            # using the map we built above if it was already built, or build it now
+            if not component_file_map:
+                # Map file path to component name if not already done
+                for p_id in active_phases:
+                    p_state = state["phases"][p_id]
+                    for c_name in p_state["components"].keys():
+                        test_path = project_config.get_component_test_path(p_id, c_name)
+                        if test_path:
+                            path_obj = Path(test_path)
+                            if path_obj.exists() and path_obj.is_dir():
+                                for fp in path_obj.rglob('test_*.py'):
+                                    component_file_map[str(fp)] = c_name
+            
+            c_name = component_file_map.get(file_path)
+            if c_name:
+                component_test_counts[c_name] = component_test_counts.get(c_name, 0) + count
         
-        # Collect all test files from all components
-        all_test_files = []
-        component_file_map = {}  # Map file path to component name
-        
-        for p_id in active_phases:
-            p_state = state["phases"][p_id]
-            components = list(p_state["components"].keys())
-            for c_name in components:
-                # Skip discovery for Task Master components unless dev tests included
-                c_state = p_state["components"][c_name]
-                if c_state.get("taskmaster_component") and not args.include_dev:
-                    continue
-                    
-                test_path = project_config.get_component_test_path(p_id, c_name)
-                # Skip components with no test path (Task Master components)
-                if not test_path:
-                    continue
-                path = Path(test_path)
-                if path.exists() and path.is_dir():
-                    # Collect test files recursively using glob
-                    for file_path in path.rglob('test_*.py'):
-                        if file_path.is_file():
-                            all_test_files.append(file_path)
-                            component_file_map[str(file_path)] = c_name
-        
-        # Track components with issues
-        empty_components = []
-        missing_paths = []
-        discovery_errors = []
-        
-        # Use fast parallel counting with progress display
-        total_files = len(all_test_files)
-        discovered_count = [0]
-        component_test_counts = {}  # component_name -> test_count
-        
-        def progress_callback(file_path, processed, total):
-            discovered_count[0] = processed
-            pct = (processed / total * 100) if total > 0 else 100
-            line = discovery_display.format_progress_line(file_path, pct, running=True)
-            sys.stdout.write(f"\r{line}")
-            sys.stdout.flush()
-        
-        if discovery_results is not None:
-            # Use results from the first discovery pass to avoid redundant scans and UI overlap
-            all_test_files = discovery_results.get('test_files', [])
-            file_test_counts = discovery_results.get('test_counts', {})
+        # Set discovered totals for each component
+        for c_name, count in component_test_counts.items():
+            if count > 0:
+                collector.set_discovered_total(c_name, count)
+            else:
+                # Find identifying info for empty component
+                for p_id in active_phases:
+                    test_path = project_config.get_component_test_path(p_id, c_name)
+                    if test_path and Path(test_path).exists():
+                        empty_components.append((p_id, c_name, test_path))
+                        break
+    else:
+        # Standalone mode or missing results: run discovery now
+        if all_test_files:
+            # Count tests in parallel using fast regex
+            file_test_counts = parallel_count_tests(all_test_files, max_workers=8, callback=progress_callback)
             
             # Aggregate by component
             for file_path, count in file_test_counts.items():
-                # categorization already happened, we can use simple lookup or re-find it
-                # For consistency with the existing loop below, we re-find the component
-                # using the map we built above if it was already built, or build it now
-                if not component_file_map:
-                    # Map file path to component name if not already done
-                    for p_id in active_phases:
-                        p_state = state["phases"][p_id]
-                        for c_name in p_state["components"].keys():
-                            test_path = project_config.get_component_test_path(p_id, c_name)
-                            if test_path:
-                                path_obj = Path(test_path)
-                                if path_obj.exists() and path_obj.is_dir():
-                                    for fp in path_obj.rglob('test_*.py'):
-                                        component_file_map[str(fp)] = c_name
-                
                 c_name = component_file_map.get(file_path)
                 if c_name:
                     component_test_counts[c_name] = component_test_counts.get(c_name, 0) + count
@@ -1121,99 +1148,76 @@ def main():
                 if count > 0:
                     collector.set_discovered_total(c_name, count)
                 else:
-                    # Find identifying info for empty component
+                    # Find the component's test path for the empty_components list
                     for p_id in active_phases:
                         test_path = project_config.get_component_test_path(p_id, c_name)
-                        if test_path and Path(test_path).exists():
+                        if Path(test_path).exists():
                             empty_components.append((p_id, c_name, test_path))
                             break
-        else:
-            # Standalone mode or missing results: run discovery now
-            if all_test_files:
-                # Count tests in parallel using fast regex
-                file_test_counts = parallel_count_tests(all_test_files, max_workers=8, callback=progress_callback)
-                
-                # Aggregate by component
-                for file_path, count in file_test_counts.items():
-                    c_name = component_file_map.get(file_path)
-                    if c_name:
-                        component_test_counts[c_name] = component_test_counts.get(c_name, 0) + count
-                
-                # Set discovered totals for each component
-                for c_name, count in component_test_counts.items():
-                    if count > 0:
-                        collector.set_discovered_total(c_name, count)
-                    else:
-                        # Find the component's test path for the empty_components list
-                        for p_id in active_phases:
-                            test_path = project_config.get_component_test_path(p_id, c_name)
-                            if Path(test_path).exists():
-                                empty_components.append((p_id, c_name, test_path))
-                                break
+    
+    # Don't reset line count yet - more output coming
+    
+    # Calculate total project tests for relative progress
+    # Only count components that actually have tests (exclude Task Master components)
+    total_project_tests = sum(
+        collector.get_component(cn).discovered_total
+        for p_id in active_phases 
+        for cn in state["phases"][p_id]["components"].keys()
+        if collector.get_component(cn) and collector.get_component(cn).discovered_total > 0
+    )
+    state["total_project_tests"] = total_project_tests
+    
+    # Count total test files for display
+    total_files = len(all_test_files)
+    total_tests = total_project_tests
+    total_phases = len(active_phases)
+    total_components = sum(len(state["phases"][p_id]["components"]) for p_id in active_phases)
+    
+    # Only print discovery line if we didn't already run --discover mode
+    # (discovery_results will be set if --run-tests --discover was used together)
+    if discovery_results is None:
+        # Display completion line in same format as --discover
+        complete_line = discovery_display.format_complete_line(total_files, total_tests, total_phases, total_components)
+        sys.stdout.write(f"\r{complete_line}\n")
         
-        # Don't reset line count yet - more output coming
+        # Print washed cyan delimiter bar (dimmed at 100%)
+        DIM = "\033[2m"
+        CYAN_BAR = "\033[96m"
+        RESET = "\033[0m"
+        bar = f"{DIM}{CYAN_BAR}{'▰' * discovery_display.term_width}{RESET}"
+        print(bar)
+        sys.stdout.flush()
+    
+    # Show ALL issues with detailed information
+    total_issues = len(discovery_errors) + len(empty_components) + len(missing_paths)
+    if total_issues > 0:
+        print(f"\033[93m⚠\033[0m {total_issues} component{'s' if total_issues > 1 else ''} with issues:")
         
-        # Calculate total project tests for relative progress
-        # Only count components that actually have tests (exclude Task Master components)
-        total_project_tests = sum(
-            collector.get_component(cn).discovered_total
-            for p_id in active_phases 
-            for cn in state["phases"][p_id]["components"].keys()
-            if collector.get_component(cn) and collector.get_component(cn).discovered_total > 0
-        )
-        state["total_project_tests"] = total_project_tests
+        # Show discovery ERRORS first (most important)
+        if discovery_errors:
+            print(f"  \033[91m✗ {len(discovery_errors)} with discovery errors:\033[0m")
+            for p_id, c_name, path, error_msg in discovery_errors:
+                short_error = error_msg[:80] + "..." if len(error_msg) > 80 else error_msg
+                print(f"    \033[90m└─ \033[91m{c_name}\033[90m: {short_error}\033[0m")
         
-        # Count total test files for display
-        total_files = len(all_test_files)
-        total_tests = total_project_tests
-        total_phases = len(active_phases)
-        total_components = sum(len(state["phases"][p_id]["components"]) for p_id in active_phases)
+        # Show empty components (no tests found but path exists)
+        if empty_components:
+            print(f"  \033[93m○ {len(empty_components)} with no tests:\033[0m")
+            for p_id, c_name, path in empty_components[:5]:
+                print(f"    \033[90m└─ {c_name}: {path}\033[0m")
+            if len(empty_components) > 5:
+                print(f"    \033[90m└─ ... and {len(empty_components) - 5} more\033[0m")
         
-        # Only print discovery line if we didn't already run --discover mode
-        # (discovery_results will be set if --run-tests --discover was used together)
-        if discovery_results is None:
-            # Display completion line in same format as --discover
-            complete_line = discovery_display.format_complete_line(total_files, total_tests, total_phases, total_components)
-            sys.stdout.write(f"\r{complete_line}\n")
-            
-            # Print washed cyan delimiter bar (dimmed at 100%)
-            DIM = "\033[2m"
-            CYAN_BAR = "\033[96m"
-            RESET = "\033[0m"
-            bar = f"{DIM}{CYAN_BAR}{'▰' * discovery_display.term_width}{RESET}"
-            print(bar)
-            sys.stdout.flush()
-        
-        # Show ALL issues with detailed information
-        total_issues = len(discovery_errors) + len(empty_components) + len(missing_paths)
-        if total_issues > 0:
-            print(f"\033[93m⚠\033[0m {total_issues} component{'s' if total_issues > 1 else ''} with issues:")
-            
-            # Show discovery ERRORS first (most important)
-            if discovery_errors:
-                print(f"  \033[91m✗ {len(discovery_errors)} with discovery errors:\033[0m")
-                for p_id, c_name, path, error_msg in discovery_errors:
-                    short_error = error_msg[:80] + "..." if len(error_msg) > 80 else error_msg
-                    print(f"    \033[90m└─ \033[91m{c_name}\033[90m: {short_error}\033[0m")
-            
-            # Show empty components (no tests found but path exists)
-            if empty_components:
-                print(f"  \033[93m○ {len(empty_components)} with no tests:\033[0m")
-                for p_id, c_name, path in empty_components[:5]:
-                    print(f"    \033[90m└─ {c_name}: {path}\033[0m")
-                if len(empty_components) > 5:
-                    print(f"    \033[90m└─ ... and {len(empty_components) - 5} more\033[0m")
-            
-            # Show missing paths
-            if missing_paths:
-                print(f"  \033[90m○ {len(missing_paths)} with missing paths:\033[0m")
-                for p_id, c_name, path in missing_paths[:5]:
-                    print(f"    \033[90m└─ {c_name}: path not found {path}\033[0m")
-                if len(missing_paths) > 5:
-                    print(f"    \033[90m└─ ... and {len(missing_paths) - 5} more\033[0m")
-        
-        # After ALL static output (discovery or completion line), prepare for dynamic UI
-        import shutil
+        # Show missing paths
+        if missing_paths:
+            print(f"  \033[90m○ {len(missing_paths)} with missing paths:\033[0m")
+            for p_id, c_name, path in missing_paths[:5]:
+                print(f"    \033[90m└─ {c_name}: path not found {path}\033[0m")
+            if len(missing_paths) > 5:
+                print(f"    \033[90m└─ ... and {len(missing_paths) - 5} more\033[0m")
+    
+    # After ALL static output (discovery or completion line), prepare for dynamic UI
+    import shutil
         # Standardize width across all UI components
         width = max(40, shutil.get_terminal_size().columns - 1)
         
