@@ -51,9 +51,10 @@ class KnownIssue:
     id: str
     type: str  # failure, error, warning, skip
     component: str
-    test_pattern: str
-    reason: str
-    created: str
+    phase_id: Optional[int] = None  # Phase number for disambiguation
+    test_pattern: str = ""
+    reason: str = ""
+    created: str = ""
     ticket_url: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     
@@ -73,13 +74,14 @@ class KnownIssue:
                 f"Invalid date format '{self.created}'. Must be YYYY-MM-DD"
             )
     
-    def matches(self, component: str, test_name: str, diag_type: str) -> bool:
+    def matches(self, component: str, test_name: str, diag_type: str, phase_id: int = None) -> bool:
         """Check if this known issue matches a test diagnostic.
         
         Args:
             component: Component name from test
             test_name: Full test name (e.g., test_schema_validation)
             diag_type: Diagnostic type (failure, error, warning, skip)
+            phase_id: Optional phase ID for disambiguation
         
         Returns:
             True if this known issue matches the given test
@@ -88,6 +90,11 @@ class KnownIssue:
             return False
         if self.type != diag_type:
             return False
+        
+        # Check phase if both are specified
+        if self.phase_id is not None and phase_id is not None:
+            if self.phase_id != phase_id:
+                return False
         
         # Use fnmatch for glob pattern matching
         # Supports: test_*, test_schema_*, test_[abc]_*
@@ -220,6 +227,40 @@ class KnownIssuesRegistry:
         self.issues.append(issue)
         self.save()
         logger.info(f"Added known issue: {issue.id}")
+    
+    def bulk_add_issues(self, issues: List[KnownIssue]) -> Dict[str, Any]:
+        """Add multiple known issues in bulk.
+        
+        Args:
+            issues: List of KnownIssue objects to add
+        
+        Returns:
+            Dictionary with 'added' count, 'skipped' count, and 'errors' list
+        """
+        result = {
+            'added': 0,
+            'skipped': 0,
+            'errors': []
+        }
+        
+        for issue in issues:
+            try:
+                # Check for duplicate ID
+                if any(i.id == issue.id for i in self.issues):
+                    result['skipped'] += 1
+                    result['errors'].append(f"Duplicate ID: {issue.id}")
+                    continue
+                
+                self.issues.append(issue)
+                result['added'] += 1
+            except Exception as e:
+                result['errors'].append(f"Error adding {issue.id}: {str(e)}")
+        
+        if result['added'] > 0:
+            self.save()
+            logger.info(f"Bulk added {result['added']} known issues")
+        
+        return result
     
     def remove_issue(self, issue_id: str) -> bool:
         """Remove an issue by ID.
