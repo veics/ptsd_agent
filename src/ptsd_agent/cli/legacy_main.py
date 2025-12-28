@@ -10,7 +10,7 @@ from ptsd_agent.metrics.legacy_collector import MetricsCollector
 from ptsd_agent.metrics.legacy_logger import MetricsLogger
 from ptsd_agent.execution.legacy_executor import TestExecutor
 from ptsd_agent.core.config import load_config
-from ptsd_agent.report_logging import get_log_manager
+# from ptsd_agent.report_logging import get_log_manager  # TODO: Fix module path
 
 def _signal_handler(signum, frame):
     """Handle Ctrl+C - exit immediately."""
@@ -107,8 +107,9 @@ def main():
         parallel_mode = True
     
     # Initialize logging
-    log_mgr = get_log_manager()
-    log_mgr.info("PTSD Agent started", data={"args": vars(args)})
+    # log_mgr = get_log_manager()  # TODO: Fix module path
+    # log_mgr.info("PTSD Agent started", data={"args": vars(args)})
+    
     
     # Handle --history / --detailed-history / --history-run
     if args.history or args.detailed_history or args.history_run:
