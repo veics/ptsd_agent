@@ -406,7 +406,7 @@ class ProgressiveDisplay:
                 self.terminal.enter_alternate_screen()
                 self.in_alternate_screen = True
                 # Re-render in alternate screen
-                #                 sys.stdout.write("\033[2J\033[H")  # Clear and home
+                sys.stdout.write("\033[2J\033[H")  # Clear and home
             
             # Build final output
             output_parts = []

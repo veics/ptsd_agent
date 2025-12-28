@@ -186,11 +186,11 @@ class ThreadChartRenderer:
         
         # Render each level (top to bottom)
         for level_idx, level in enumerate(levels):
-            # Y-axis label
+            # Y-axis label (numbers GRAY, border GREEN)
             if level >= 10:
-                label = f"{self.GRAY}{level:3d} ┃{self.RESET}"
+                label = f"{self.GRAY}{level:3d} {self.GREEN}┃{self.RESET}"
             else:
-                label = f"{self.GRAY}  {level} ┃{self.RESET}"
+                label = f"{self.GRAY}  {level} {self.GREEN}┃{self.RESET}"
             line = label
             
             # Render each column
@@ -242,7 +242,7 @@ class ThreadChartRenderer:
                 last_idx = i
                 break
         
-        timeline_line = f"{self.GRAY}    ┗━━{self.RESET}"
+        timeline_line = f"{self.GRAY}    {self.GREEN}┗━━{self.RESET}"
         
         # GREEN progress
         for i in range(len(self.downsampled_data)):
@@ -250,8 +250,8 @@ class ThreadChartRenderer:
                 # Solid green
                 timeline_line += f"{self.GREEN}━{self.RESET}"
             elif i == last_idx:
-                # BLINK: washed green ↔ grey
-                if self.frame_count % 2 == 0:
+                # BLINK: washed green ↔ grey (slower: every 4 frames)
+                if self.frame_count % 4 < 2:
                     timeline_line += f"{self.FADED_GREEN}━{self.RESET}"
                 else:
                     timeline_line += f"{self.GRAY}━{self.RESET}"
@@ -261,9 +261,9 @@ class ThreadChartRenderer:
         visible_so_far = 7 + (last_idx + 1 if last_idx >= 0 else 0) + 1
         remaining = tw - visible_so_far - 1
         if remaining > 0:
-            timeline_line += f"{self.GRAY}{'━' * remaining}┛{self.RESET}"
+            timeline_line += f"{self.GREEN}{'━' * remaining}┛{self.RESET}"
         else:
-            timeline_line += f"{self.GRAY}┛{self.RESET}"
+            timeline_line += f"{self.GREEN}┛{self.RESET}"
         
         lines.append(timeline_line)
         
