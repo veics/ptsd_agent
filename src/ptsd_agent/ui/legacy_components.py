@@ -453,13 +453,13 @@ class ProgressBar:
 
 class MetricsBlock:
     """
-    Standardized metrics display: [ 85% cov | 1579 war | 268 fail | ... ]
+    Standardized metrics display: [ N wr | N fl | N er | N sk | N% cv | N% ]
     Uses theme thresholds for automatic coloring.
     Compact format: numbers always fit, labels truncate as needed.
     """
     
-    # Target total width: ~65 chars for metrics content (excluding brackets)
-    # Format: cov%, war, fail, err, skp, total, pass%
+    # Target total width: ~43 chars for metrics content (excluding brackets)
+    # Format: war, fail, err, skip, cov%, pass%
     
     def _format_metric(self, value: int, label: str, width: int) -> str:
         """Format metric with strict fixed width, truncating label if needed."""
@@ -526,8 +526,6 @@ class MetricsBlock:
         err_str = self._format_metric(err, "er", 6)
         skip_str = self._format_metric(skip, "sk", 6)
         
-        total_str = f"{total:5d}"
-        
         # Pass rate - use round() for proper .5 handling
         if pass_rate == 100 or pass_rate == 0:
             p_val = f"{int(pass_rate)}%"
@@ -536,12 +534,11 @@ class MetricsBlock:
         pass_str = p_val.rjust(6)
         
         parts = [
-            f"{cov_color}{cov_str}{RESET}",
             f"{war_color}{war_str}{RESET}",
             f"{fail_color}{fail_str}{RESET}",
             f"{err_color}{err_str}{RESET}",
             f"{skip_color}{skip_str}{RESET}",
-            f"{total_color}{total_str}{RESET}",
+            f"{cov_color}{cov_str}{RESET}",
             f"{pass_color}{pass_str}{RESET}",
         ]
         
@@ -552,8 +549,8 @@ class MetricsBlock:
     
     @property
     def width(self) -> int:
-        # [6cv|6wr|6fl|6er|6sk|5tot|6pct] = 2 brackets + 6 separators + 41 chars = 49
-        return 49
+        # [6wr|6fl|6er|6sk|6cv|6pct] = 2 brackets + 5 separators + 36 chars = 43
+        return 43
 
 
 # =============================================================================
