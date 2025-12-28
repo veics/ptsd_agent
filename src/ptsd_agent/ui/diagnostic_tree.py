@@ -133,6 +133,14 @@ class DiagnosticTreeBuilder:
         
         return root
     
+    def get_known_counts(self) -> Dict[str, int]:
+        """Get counts of known issues found during tree building.
+        
+        Returns:
+            Dict with counts by type
+        """
+        return self.known_counts.copy()
+    
     def _build_phase_node(self, phase_id: int, phase_state: Dict, collector) -> DiagnosticNode:
         """Build a phase node with its components."""
         phase_node = DiagnosticNode(
@@ -338,6 +346,7 @@ class DiagnosticTreeRenderer:
         self.CYAN = CYAN
         self.RED_BRIGHT = RED_BRIGHT
         self.BLUE = BLUE
+        self.known_counts = {}
     
     def render(self, root: DiagnosticNode, show_all: bool = False) -> List[str]:
         """Render tree to list of strings for terminal output.
@@ -410,7 +419,7 @@ class DiagnosticTreeRenderer:
         color = self._get_node_color(node)
         
         # Build count string
-        count_str = self._format_counts(node.counts)
+        count_str = self._format_counts(node.counts, self.known_counts)
         
         # Format based on node level
         if node.level == 'phase':
@@ -478,25 +487,39 @@ class DiagnosticTreeRenderer:
         
         return ""  # No color
     
-    def _format_counts(self, counts: Dict[str, int]) -> str:
-        """Format diagnostic counts for display.
+    def _format_counts(self, counts: Dict[str, int], known_counts: Dict[str, int] = None) -> str:
+        """Format diagnostic counts for display with optional new vs known breakdown.
         
         Args:
-            counts: Dict of diagnostic type counts
+            counts: Dict of total diagnostic type counts
+            known_counts: Optional dict of known issue counts
         
         Returns:
-            Formatted count string like "[3 wr | 2 sk]"
+            Formatted count string like "[3 wr | 2 sk]" or "[2 new wr + 1 known | 2 sk]"
         """
         parts = []
         
-        if counts.get('warnings'):
-            parts.append(f"{counts['warnings']} wr")
-        if counts.get('skipped'):
-            parts.append(f"{counts['skipped']} sk")
-        if counts.get('failures'):
-            parts.append(f"{counts['failures']} fl")
-        if counts.get('errors'):
-            parts.append(f"{counts['errors']} er")
+        # Abbreviations for display
+        abbr = {'warnings': 'wr', 'skipped': 'sk', 'failures': 'fl', 'errors': 'er'}
+        
+        for key in ['warnings', 'failures', 'errors', 'skipped']:
+            total = counts.get(key, 0)
+            if total == 0:
+                continue
+            
+            if known_counts and known_counts.get(key, 0) > 0:
+                # Show new vs known breakdown
+                known = known_counts[key]
+                new = total - known
+                if new > 0 and known > 0:
+                    parts.append(f"{new} new {abbr[key]} + {known} known")
+                elif known > 0:
+                    parts.append(f"{known} known {abbr[key]}")
+                else:
+                    parts.append(f"{total} {abbr[key]}")
+            else:
+                # Just show total
+                parts.append(f"{total} {abbr[key]}")
         
         if not parts:
             return ""

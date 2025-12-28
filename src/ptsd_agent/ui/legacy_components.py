@@ -634,8 +634,9 @@ class DiagnosticsSection:
         )
         root = builder.build_tree(self.collector, self.state, self.active_phases)
         
-        # Render tree
+        # Render tree with known counts
         renderer = DiagnosticTreeRenderer(term_width=self.term_width)
+        renderer.known_counts = builder.get_known_counts()  # Pass known counts for display
         lines = renderer.render(root, show_all=False)
         
         return lines
