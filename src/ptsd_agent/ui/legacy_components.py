@@ -583,7 +583,8 @@ class DiagnosticsSection:
     """
     
     def __init__(self, collector, term_width: int = None, show_diagnostics: bool = False,
-                 use_tree_view: bool = False, state: Dict = None, active_phases: List = None):
+                 use_tree_view: bool = False, state: Dict = None, active_phases: List = None,
+                 hide_known_issues: bool = False):
         """Initialize diagnostics section.
         
         Args:
@@ -593,6 +594,7 @@ class DiagnosticsSection:
             use_tree_view: If True, use tree view. If False, use flat view.
             state: Global state dict (required for tree view)
             active_phases: List of active phase IDs (required for tree view)
+            hide_known_issues: If True, filter out known issues from display
         """
         self.collector = collector
         self.term_width = term_width or get_terminal_width()
@@ -600,6 +602,15 @@ class DiagnosticsSection:
         self.use_tree_view = use_tree_view
         self.state = state
         self.active_phases = active_phases or []
+        self.hide_known_issues = hide_known_issues
+        
+        # Load known issues registry if it exists
+        self.known_issues = None
+        try:
+            from ptsd_agent.core.known_issues import KnownIssuesRegistry
+            self.known_issues = KnownIssuesRegistry()
+        except Exception:
+            pass  # No registry file or import error, continue without it
     
     def build(self) -> List[str]:
         """Build diagnostics section lines"""
@@ -617,7 +628,10 @@ class DiagnosticsSection:
         from ptsd_agent.ui.diagnostic_tree import DiagnosticTreeBuilder, DiagnosticTreeRenderer
         
         # Build tree structure
-        builder = DiagnosticTreeBuilder()
+        builder = DiagnosticTreeBuilder(
+            known_issues_registry=self.known_issues,
+            hide_known=self.hide_known_issues
+        )
         root = builder.build_tree(self.collector, self.state, self.active_phases)
         
         # Render tree

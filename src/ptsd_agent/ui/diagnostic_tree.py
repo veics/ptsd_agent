@@ -59,13 +59,47 @@ class DiagnosticNode:
 class DiagnosticTreeBuilder:
     """Build hierarchical diagnostic tree from flat component data."""
     
-    def __init__(self):
+    def __init__(self, known_issues_registry=None, hide_known=False):
+        """Initialize tree builder.
+        
+        Args:
+            known_issues_registry: Optional KnownIssuesRegistry for marking known issues
+            hide_known: If True, filter out known issues from display
+        """
         self.diagnostic_type_map = {
             'warning_details': 'warnings',
             'skipped_tests': 'skipped',
             'failures': 'failures',
             'test_errors': 'errors'
         }
+        self.known_issues = known_issues_registry
+        self.hide_known = hide_known
+        self.known_counts = {'warnings': 0, 'skipped': 0, 'failures': 0, 'errors': 0}
+    
+    def _check_known_issue(self, component: str, test_name: str, diag_type: str):
+        """Check if a diagnostic matches a known issue.
+        
+        Args:
+            component: Component name
+            test_name: Test name
+            diag_type: Diagnostic type (warnings, skipped, failures, errors)
+        
+        Returns:
+            KnownIssue if match found, None otherwise
+        """
+        if not self.known_issues:
+            return None
+        
+        # Map diagnostic_tree type names to known_issue type names
+        type_map = {
+            'warnings': 'warning',
+            'skipped': 'skip',
+            'failures': 'failure',  
+            'errors': 'error'
+        }
+        known_type = type_map.get(diag_type, diag_type)
+        
+        return self.known_issues.find_matching_issue(component, test_name, known_type)
     
     def build_tree(self, collector, state: Dict, active_phases: List[int]) -> DiagnosticNode:
         """Build complete diagnostic tree from collector and state.
@@ -188,8 +222,9 @@ class DiagnosticTreeBuilder:
         # Create test nodes for each diagnostic
         for diag in diagnostics:
             test_node = self._build_test_node(diag, type_name)
-            file_node.children.append(test_node)
-            file_node.counts[type_name] += 1
+            if test_node:  # Skip if filtered (known issue with hide_known=True)
+                file_node.children.append(test_node)
+                file_node.counts[type_name] += 1
         
         return file_node
     
@@ -219,6 +254,26 @@ class DiagnosticTreeBuilder:
             metadata={'details': details, 'type': type_name}
         )
         test_node.counts[type_name] = 1
+        
+        # Check for known issues
+        component = diagnostic.get('component', 'unknown')
+        known_issue = self._check_known_issue(component, test_name, type_name)
+        
+        if known_issue:
+            # Track known issue counts
+            self.known_counts[type_name] += 1
+            
+            # Add to metadata
+            test_node.metadata['known_issue'] = known_issue
+            test_node.metadata['known_issue_id'] = known_issue.id
+            
+            # Mark in display name (unless hiding)
+            if not self.hide_known:
+                test_node.name = f"{test_name} [KNOWN: {known_issue.id}]"
+        
+        # Skip this node if it's known and we're hiding them
+        if known_issue and self.hide_known:
+            return None
         
         return test_node
     
