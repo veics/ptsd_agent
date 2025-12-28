@@ -1133,7 +1133,7 @@ def main():
         logger.log_snapshot(summary, collector.components)
         
         # Exit alternate screen if it was entered (large UI case)
-        if use_alternate_screen:
+        if getattr(display, 'in_alternate_screen', False):
             display.terminal.exit_alternate_screen()
         
         # Save run history (JSON + SQLite)
