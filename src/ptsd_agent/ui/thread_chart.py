@@ -41,8 +41,9 @@ class ThreadChartRenderer:
     # Dense block
     DENSE_BLOCK = '⣿'
     
-    # Gray for baseline
-    GRAY_FILLED = '\033[38;5;240m'
+    # Sparse baseline (2-3 dots char)
+    BASELINE_CHAR = '⠂'  # Simple 2-dot Braille character
+    BASELINE_COLOR = '\033[38;5;240m'  # Gray
     
     # Foreground colors
     FG_COLORS = {
@@ -59,8 +60,12 @@ class ThreadChartRenderer:
     # Spacing threshold (threads below curve)
     CURVE_SPACING = 0.5  # Half a level spacing
     
-    def __init__(self, max_threads: int = 12, terminal_width: int = 80, height: int = 5):
+    def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 5):
         """Initialize chart renderer."""
+        # Use actual terminal width if not specified
+        if terminal_width is None:
+            import shutil
+            terminal_width = shutil.get_terminal_size().columns
         self.max_threads = max_threads
         self.terminal_width = terminal_width
         self.height = height
@@ -192,9 +197,9 @@ class ThreadChartRenderer:
                                 break
                         
                         if not drawn:
-                            # Gray baseline at bottom
+                            # Sparse dot baseline at bottom
                             if level_idx == 0:
-                                line += self.GRAY_FILLED + self.DENSE_BLOCK + self.RESET
+                                line += self.BASELINE_COLOR + self.BASELINE_CHAR + self.RESET
                             else:
                                 line += ' '
             

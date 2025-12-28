@@ -408,17 +408,8 @@ class ProgressiveDisplay:
                 # Re-render in alternate screen
                 sys.stdout.write("\033[2J\033[H")  # Clear and home
             
-            # Build final output with thread chart at top if enabled
+            # Build final output
             output_parts = []
-            
-            # Add minimalistic thread chart at very top (single line)
-            if self.thread_chart_enabled and self.thread_chart:
-                try:
-                    chart_line = self.thread_chart.render()
-                    if chart_line:
-                        output_parts.append(chart_line)  # Single line chart
-                except Exception:
-                    pass  # Silently fail if chart has issues
             
             # Add regular display lines
             output_parts.extend(self.lines)
@@ -695,6 +686,15 @@ class ProgressiveDisplay:
     def build_bottom_bar(self, progress_pct=0, mode="running", active_count=1):
         """Full-width progress bar with blinking blocks for active processes."""
         w = self.term_width
+        
+        # Render thread chart RIGHT ABOVE bottom bar
+        if self.thread_chart_enabled and self.thread_chart:
+            try:
+                chart_output = self.thread_chart.render()
+                if chart_output:
+                    self.add_line(chart_output)
+            except Exception:
+                pass  # Silently fail if chart has issues
         
         # Use BottomBar component for blinking support
         bar = self._bottom_bar.render(
