@@ -3,6 +3,9 @@
 # ANSI Color Codes
 RESET = "\033[0m"
 DIM = "\033[2m"
+BOLD = "\033[1m"
+UNDERLINE = "\033[4m"
+NO_UNDERLINE = "\033[24m"
 GRAY = "\033[90m"
 RED = "\033[91m"
 GREEN = "\033[92m"

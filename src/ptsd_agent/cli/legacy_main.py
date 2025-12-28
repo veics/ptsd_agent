@@ -545,6 +545,13 @@ def main():
     if target_components and not target_phases:
         parser.error("--component requires --phase to be specified (component names can be identical across phases)")
 
+    # Display PTSD Agent header
+    from ptsd_agent.ui.theme import CYAN, GRAY, BOLD, RESET, DIM
+    print()
+    print(f"{BOLD}{CYAN}PTSD Agent v0.7.0{RESET} {DIM}- Parallel Test Suite Diagnostics{RESET}")
+    print(f"{GRAY}Universal Test Runner with Real-Time Metrics{RESET}")
+    print()
+
     # Load project configuration from .ptsd.yaml
     project_config = load_config(".")
     
