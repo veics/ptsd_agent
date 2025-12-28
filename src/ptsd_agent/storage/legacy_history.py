@@ -123,11 +123,30 @@ class HistoryStore:
             )
         """)
         
+        # Skip events for audit trail
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS skip_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL,
+                test_name TEXT NOT NULL,
+                component TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                marker TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                phase_id INTEGER,
+                file_path TEXT,
+                FOREIGN KEY (run_id) REFERENCES runs(run_id)
+            )
+        """)
+        
         # Indexes for common queries
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_runs_timestamp ON runs(timestamp DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_phase_run ON phase_metrics(run_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_component_run ON component_metrics(run_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_run ON test_files(run_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_skip_test ON skip_events(test_name)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_skip_component ON skip_events(component)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_skip_run ON skip_events(run_id)")
         
         conn.commit()
         conn.close()
@@ -426,6 +445,90 @@ class HistoryStore:
                 return json.load(f)
         return None
     
+    def save_skip_events(self, run_id: str, skip_events: List[Dict]):
+        """Save skip events to database for audit trail.
+        
+        Args:
+            run_id: The run ID these events belong to
+            skip_events: List of skip event dicts with test_name, component, reason, marker, etc.
+        """
+        if not skip_events:
+            return
+        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        for event in skip_events:
+            cursor.execute("""
+                INSERT INTO skip_events 
+                (run_id, test_name, component, reason, marker, timestamp, phase_id, file_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                run_id,
+                event.get('test_name', 'unknown'),
+                event.get('component', 'unknown'),
+                event.get('reason', ''),
+                event.get('marker', 'skip'),
+                event.get('timestamp', datetime.now(timezone.utc).isoformat()),
+                event.get('phase_id'),
+                event.get('file_path')
+            ))
+        
+        conn.commit()
+        conn.close()
+    
+    def get_skip_history(self, test_name: str = None, component: str = None, 
+                         limit: int = 100) -> List[Dict]:
+        """Get skip history with optional filters.
+        
+        Args:
+            test_name: Filter by test name (exact match)
+            component: Filter by component name
+            limit: Max results (default 100)
+        
+        Returns:
+            List of dicts with skip event data including frequency
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        query = """
+            SELECT 
+                test_name,
+                component,
+                reason,
+                marker,
+                COUNT(*) as skip_count,
+                MAX(timestamp) as last_seen,
+                MIN(timestamp) as first_seen,
+                GROUP_CONCAT(DISTINCT run_id) as run_ids
+            FROM skip_events
+            WHERE 1=1
+        """
+        params = []
+        
+        if test_name:
+            query += " AND test_name = ?"
+            params.append(test_name)
+        
+        if component:
+            query += " AND component = ?"
+            params.append(component)
+        
+        query += """
+            GROUP BY test_name, component, reason, marker
+            ORDER BY skip_count DESC, last_seen DESC
+            LIMIT ?
+        """
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        results = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        return results
+    
     def cleanup_old_runs(self, keep_days: int = 30, keep_min: int = 10):
         """Clean up old history files, keeping at least keep_min runs."""
         conn = sqlite3.connect(self.db_path)
@@ -453,6 +556,7 @@ class HistoryStore:
         
         # Delete old runs
         for run_id, json_path in to_delete:
+            cursor.execute("DELETE FROM skip_events WHERE run_id = ?", (run_id,))
             cursor.execute("DELETE FROM test_files WHERE run_id = ?", (run_id,))
             cursor.execute("DELETE FROM component_metrics WHERE run_id = ?", (run_id,))
             cursor.execute("DELETE FROM phase_metrics WHERE run_id = ?", (run_id,))
