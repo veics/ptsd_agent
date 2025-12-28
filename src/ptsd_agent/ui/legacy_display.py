@@ -551,16 +551,25 @@ class ProgressiveDisplay:
         # Use running_count for blinking blocks (0 at completion)
         active_for_bar = running_count if mode == "running" else 0
         right, right_width = self._format_right_block(progress_pct, mode=mode, triangle=triangle, active_count=active_for_bar)
+        
+        # For underlined phase lines, extend underline to fill the line
+        # Calculate how many spaces needed to reach one char before triangle
+        if UNDERLINE in left:  # Check if we're using underline
+            # Calculate total line width
+            total_visible = len(left_visible) + middle_width + right_width
+            # Add spaces under underline to fill until one before triangle
+            spaces_needed = self.term_width - total_visible - 2  # -2 for one space before triangle
+            if spaces_needed > 0:
+                # Re-apply underline with extended spaces
+                # Find the position of NO_UNDERLINE in display_name and insert spaces before it
+                extended_spaces = " " * spaces_needed
+                left = left.replace(NO_UNDERLINE, extended_spaces + NO_UNDERLINE)
+        
         # Use margin=0 for tight alignment of metrics next to percentage
         line = self._build_aligned_row(left, len(left_visible), right, right_width, middle, middle_width, margin_right=0, mode=mode)
         self.add_line(line)
         
-        # Add visual underline for expanded phase nodes with components
-        if triangle == "expanded" and components and len(components) > 0:
-            # Subtle dimmed separator line under expanded phases
-            sep_width = min(40, self.term_width - 6)
-            underline = f"{DIM}  │ {'─' * sep_width}{RESET}"
-            self.add_line(underline)
+        # Separator line removed - underline extends on the phase line itself
     
     def build_component_line(self, comp_name, is_last_comp, progress_pct=0, current_test=None, 
                             mode="running", status="running", is_last_phase=False, 
