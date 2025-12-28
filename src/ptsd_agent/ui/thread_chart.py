@@ -226,7 +226,7 @@ class ThreadChartRenderer:
                         
                         # Crisp edge at transition
                         if prev_op and prev_op != op:
-                            line += color + self.EDGE_CHAR + self.RESET
+                            line += color + self.DOT_CHAR + self.RESET
                         else:
                             # Full block
                             line += color + self.FULL_BLOCK + self.RESET
