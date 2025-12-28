@@ -85,6 +85,22 @@ def main():
     parser.add_argument("--known-issue-type", type=str, choices=['failure', 'error', 'warning', 'skip'],
                        help="Filter known issues by type (use with --list-known-issues)")
     
+    # Skip History
+    parser.add_argument("--skip-history", action="store_true",
+                       help="Show skip history with frequency tracking")
+    parser.add_argument("--show-all", action="store_true",
+                       help="Show all details in skip history (not just summary)")
+    
+    # Dependency Management
+    parser.add_argument("--show-dependency-graph", action="store_true",
+                       help="Visualize component/phase dependencies and detect cycles")
+    parser.add_argument("--check-dependency-updates", action="store_true",
+                       help="Check for external dependency updates")
+    parser.add_argument("--auto-install-blockers", action="store_true",
+                       help="Enable automatic installation of external blockers")
+    parser.add_argument("--reset-iterations", action="store_true",
+                       help="Reset iteration counter for auto-install")
+    
     # Test collection accuracy
     parser.add_argument("--accurate", action="store_true", default=True,
                        help="Use pytest collection for accurate test counts (default: enabled)")
