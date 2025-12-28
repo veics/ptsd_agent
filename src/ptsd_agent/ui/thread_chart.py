@@ -1,10 +1,7 @@
-"""Elegant thread utilization chart with curved edges and gradients.
+"""Stunning thread chart with colored timeline axis.
 
-Professional visualization with:
-- Smooth Braille curves at edges
-- Gradient fills (░▒▓)
-- Tick marks on X-axis
-- Elegant, modern appearance
+The bottom axis itself becomes a beautiful visualization showing
+operation types over time with smooth color transitions!
 """
 
 import time
@@ -31,12 +28,7 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders elegant thread chart with curved edges."""
-    
-    # Braille patterns for smooth baseline curves
-    BRAILLE_BOTTOM = ['⠤', '⢄', '⣀', '⣀', '⣀', '⡠', '⠤']
-    BRAILLE_TOP_RISE = ['⣠', '⠎', '⠱']
-    BRAILLE_TOP_FALL = ['⠹', '⠱', '⣄']
+    """Renders stunning thread chart with colored timeline."""
     
     # Gradient characters
     GRADIENT_CHARS = ['░', '▒', '▓', '█']
@@ -50,19 +42,23 @@ class ThreadChartRenderer:
         OperationType.CACHE: ['\033[38;5;30m', '\033[38;5;36m', '\033[38;5;42m', '\033[38;5;48m'],
     }
     
+    # Solid colors for timeline
+    TIMELINE_COLORS = {
+        OperationType.DISCOVERY: '\033[48;5;33m',     # Blue background
+        OperationType.EXECUTION: '\033[48;5;34m',     # Green background
+        OperationType.AI_ANALYSIS: '\033[48;5;142m',  # Yellow background
+        OperationType.AUTO_FIX: '\033[48;5;160m',     # Red background
+        OperationType.CACHE: '\033[48;5;36m',         # Cyan background
+    }
+    
     RESET = '\033[0m'
     DIM = '\033[2m'
     BOLD = '\033[1m'
     GRAY = '\033[1;30m'
+    WHITE = '\033[97m'
     
     def __init__(self, max_threads: int = 12, terminal_width: int = 80, height: int = 5):
-        """Initialize chart renderer.
-        
-        Args:
-            max_threads: Maximum number of threads
-            terminal_width: Width of terminal
-            height: Height in rows
-        """
+        """Initialize chart renderer."""
         self.max_threads = max_threads
         self.terminal_width = terminal_width
         self.height = height
@@ -80,40 +76,14 @@ class ThreadChartRenderer:
         )
         self.timeline_data.append(point)
     
-    def _is_edge(self, idx: int, value: float, level_min: float, level_max: float) -> tuple[bool, str]:
-        """Check if this is an edge position and get appropriate char.
-        
-        Returns:
-            (is_edge, braille_char)
-        """
-        # Edges are where value transitions across the level threshold
-        if idx == 0:
-            return False, ''
-        
-        prev_point = self.downsampled_data[idx - 1] if idx > 0 else None
-        if not prev_point:
-            return False, ''
-        
-        # Rising edge (entering this level)
-        if prev_point.active_threads < level_min and value >= level_min:
-            return True, '⣠'
-        
-        # Falling edge (leaving this level)
-        if prev_point.active_threads >= level_max and value < level_max:
-            return True, '⠱⣄'
-        
-        return False, ''
-    
     def _get_char_for_level(self, idx: int, value: float, level_min: float, level_max: float, op_type: OperationType) -> str:
         """Get character for this position and level."""
         if value <= level_min:
             return ' '
         elif value >= level_max:
-            # Full level - use gradient fill
             color = self.COLOR_GRADIENTS[op_type][-1]
             return color + self.GRADIENT_CHARS[-1] + self.RESET
         else:
-            # Partial level - use gradient based on intensity
             ratio = (value - level_min) / (level_max - level_min)
             
             char_index = int(ratio * len(self.GRADIENT_CHARS))
@@ -127,12 +97,11 @@ class ThreadChartRenderer:
             return color + char + self.RESET
     
     def render(self) -> str:
-        """Render elegant thread chart."""
+        """Render stunning thread chart with colored timeline."""
         if not self.timeline_data:
             return ""
         
-        # Store downsampled data for edge detection
-        self.downsampled_data = self._downsample_data(self.timeline_data, self.chart_width)
+        downsampled = self._downsample_data(self.timeline_data, self.chart_width)
         
         lines = []
         threads_per_level = self.max_threads / self.height
@@ -152,32 +121,40 @@ class ThreadChartRenderer:
             
             line = label + " "
             
-            for idx, point in enumerate(self.downsampled_data):
+            for idx, point in enumerate(downsampled):
                 char = self._get_char_for_level(idx, point.active_threads, level_min, level_max, point.operation_type)
                 line += char
             
             lines.append(line)
         
-        # X-axis with tick marks
+        # Beautiful colored timeline axis!
+        timeline_line = f"{self.GRAY}    ┗━━{self.RESET}"
+        
+        prev_op = None
+        for idx, point in enumerate(downsampled):
+            # Add delimiter when operation type changes
+            if prev_op and prev_op != point.operation_type:
+                timeline_line += self.RESET + self.GRAY + "╸" + self.RESET
+            
+            # Colored timeline segment
+            color = self.TIMELINE_COLORS.get(point.operation_type, '')
+            timeline_line += color + " " + self.RESET
+            
+            prev_op = point.operation_type
+        
+        timeline_line += self.GRAY + "┛" + self.RESET
+        lines.append(timeline_line)
+        
+        # Time labels with tick marks
         total_time = time.time() - self.start_time
         tick_interval = max(int(self.chart_width / 8), 8)
         
-        x_axis = f"{self.GRAY}    ┗━━"
-        for i in range(self.chart_width):
-            if i > 0 and i % tick_interval == 0:
-                x_axis += "┳"
-            else:
-                x_axis += "━"
-        x_axis += "┛" + self.RESET
-        lines.append(x_axis)
-        
-        # Time labels
         time_labels = "      "
         for i in range(0, self.chart_width, tick_interval):
             time_sec = int((i / self.chart_width) * total_time)
-            time_labels += f"{self.GRAY}{time_sec:02d}     {self.RESET}"
+            time_labels += f"{self.DIM}{time_sec:02d}     {self.RESET}"
         
-        lines.append(self.DIM + time_labels + self.RESET)
+        lines.append(time_labels)
         
         return '\n'.join(lines)
     
