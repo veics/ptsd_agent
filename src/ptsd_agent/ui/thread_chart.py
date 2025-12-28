@@ -208,7 +208,7 @@ class ThreadChartRenderer:
         # Timeline axis
         timeline_line = f"{self.GRAY}    ┗━━{self.RESET}"
         for _ in self.downsampled_data:
-            timeline_line += self.GRAY_FILLED + "━" + self.RESET
+            timeline_line += self.BASELINE_COLOR + "━" + self.RESET
         timeline_line += self.GRAY + "┛" + self.RESET
         lines.append(timeline_line)
         
