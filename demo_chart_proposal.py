@@ -66,7 +66,7 @@ def main():
         print(f"  Frame {frame + 1}/{len(timeline)}")
         print(f"{'='*80}\n")
         
-        # Render chart rows (NO empty 0.0 line, NO leading spaces)
+        # Render chart rows - EACH BAR SHOWS ALL COLORS STACKED!
         for level in levels:
             # Y-axis label
             label = f"{GRAY}{level:3d} ┃{RESET}" if level > 1 else f"{GRAY}  {level} ┃{RESET}"
@@ -79,10 +79,12 @@ def main():
                     line += " "
                     continue
                 
-                # Stack colors bottom-up - EACH BLOCK WITH ITS COLOR PER TYPE!
+                # Calculate which operation's color to show at this level
+                # Stack from bottom: discovery, execution, ai, fix, cache
                 cumulative = 0
-                drawn = False
+                shown_color = None
                 
+                # Check each operation layer
                 for op, color in [('discovery', BLUE), ('execution', GREEN),
                                  ('ai', YELLOW), ('fix', RED), ('cache', CYAN)]:
                     if op in point:
@@ -91,18 +93,20 @@ def main():
                         top = cumulative + count
                         cumulative += count
                         
-                        # THIS BLOCK BELONGS TO THIS OPERATION - USE ITS COLOR!
-                        if top >= level and bottom < level:
-                            line += color + BLOCK + RESET  # Colored by operation type!
-                            drawn = True
+                        # If this level is within this operation's range, use its color
+                        if level <= top and level > bottom:
+                            shown_color = color
                             break
                 
-                if not drawn:
+                # Draw block with the operation's color at this level
+                if shown_color:
+                    line += shown_color + BLOCK + RESET
+                else:
                     line += " "
             
             print(line)
         
-        # Pip-style timeline with BLINKING (alternates between colored and grey)
+        # Pip-style timeline - GREEN with BLINKING last block
         import shutil
         tw = shutil.get_terminal_size().columns
         
@@ -115,18 +119,22 @@ def main():
         
         tl = f"{GRAY}    ┗━━{RESET}"
         
-        # Colored progress
+        # GREEN colored progress (not grey!)
         for i in range(frame + 1):
             if i < last_idx:
-                # Solid colored progress
+                # Solid GREEN progress
                 tl += f"{GREEN}━{RESET}"
             elif i == last_idx:
-                # BLINK between GREEN or GREY (alternates each frame)
-                blink_color = GREEN if frame % 2 == 0 else GRAY
-                tl += f"{blink_color}━{RESET}"
+                # BLINK between washed GREEN and GREY
+                if frame % 2 == 0:
+                    tl += f"{FADED_GREEN}━{RESET}"  # Washed green
+                else:
+                    tl += f"{GRAY}━{RESET}"  # Grey
         
-        # Gap + grey to end
+        # Gap (space)
         tl += " "
+        
+        # Grey extension to terminal width
         vis = 7 + (last_idx + 1 if last_idx >= 0 else 0) + 1
         remaining = tw - vis - 1
         if remaining > 0:
