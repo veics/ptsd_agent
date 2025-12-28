@@ -8,7 +8,7 @@ import logging
 import ast
 from typing import Dict, List, Optional
 from pathlib import Path
-from .metrics.collector import MetricsCollector, TestResult
+from ptsd_agent.metrics.legacy_collector import MetricsCollector, TestResult
 from ..discovery.fast_counter import FastTestCounter  # NEW: Phase 2
 
 logger = logging.getLogger(__name__)
