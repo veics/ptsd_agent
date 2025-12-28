@@ -40,7 +40,7 @@ class PytestDiscoverer:
             tree = ast.parse(content)
             
             count = 0
-            for node in ast.walk(tree):
+            for node in tree.body:
                 # Count test functions
                 if isinstance(node, ast.FunctionDef):
                     if node.name.startswith('test_'):
