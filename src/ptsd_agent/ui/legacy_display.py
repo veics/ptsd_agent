@@ -706,8 +706,11 @@ class ProgressiveDisplay:
                 chart_output = self.thread_chart.render()
                 if chart_output:
                     self.add_line(chart_output)
-            except Exception:
-                pass  # Silently fail if chart has issues
+            except Exception as e:
+                import sys
+                print(f"\n[CHART ERROR] {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+                import traceback
+                traceback.print_exc(file=sys.stderr)
         
         # Use BottomBar component for blinking support
         bar = self._bottom_bar.render(

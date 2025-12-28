@@ -65,7 +65,7 @@ class ThreadChartRenderer:
     
     # Curve spacing removed - not needed for new design
     
-    def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 5, use_advanced_lut: bool = True):
+    def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 5, use_advanced_lut: bool = False):
         """Initialize chart renderer.
         
         Args:
@@ -110,6 +110,13 @@ class ThreadChartRenderer:
     
     def add_data_point(self, operations: Dict[OperationType, int]):
         """Add data point."""
+        # DEBUG: Log incoming data
+        import sys
+        total = sum(operations.values()) if operations else 0
+        if total > 0:
+            ops_str = ', '.join(f"{k.value}:{v}" for k, v in operations.items())
+            print(f"[CHART DATA] Adding: {ops_str} (total={total})", file=sys.stderr, flush=True)
+        
         point = DataPoint(
             timestamp=time.time(),
             operations=operations
