@@ -1,0 +1,43 @@
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI
+    participant Coordinator
+    participant Discovery
+    participant Executor
+    participant Metrics
+    participant UI
+
+    User->>CLI: ptsd_agent --run-tests --phase 2
+    CLI->>Coordinator: initialize(config)
+    Coordinator->>Discovery: discover_files(project_root)
+    
+    Note over Discovery: Fast Scan Phase<br/>(AST parsing)
+    loop For each file
+        Discovery->>Discovery: estimate_test_count()
+        Discovery-->>UI: file_progress
+    end
+    UI-->>User: ✓ Discovery: ~2,800 tests
+    
+    Coordinator->>Executor: execute(tests, progress_callback)
+    
+    Note over Executor: Initialization<br/>(venv, imports)
+    Executor->>Executor: detect_venv()
+    Executor->>Executor: collect_accurate()
+    Executor-->>UI: Collected 556 tests
+    
+    loop For each test
+        Executor->>Executor: run_test()
+        
+        Note over Executor: After EACH test completes
+        Executor->>Metrics: progress_callback(ProgressUpdate)
+        Note over Metrics: completed=42<br/>total=556
+        Metrics->>UI: update_progress()
+        UI-->>User: [▰▰▰▰▱▱] 42/556 (7.5%)
+    end
+    
+    Executor-->>Coordinator: TestResult
+    Coordinator->>Metrics: aggregate_results()
+    Metrics->>UI: show_summary()
+    UI-->>User: ✓ 556 passed | 2 wr | 60 sk
+```

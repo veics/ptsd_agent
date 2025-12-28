@@ -1,0 +1,76 @@
+```mermaid
+graph TB
+    subgraph "User Interface Layer"
+        CLI[CLI Entry Point<br/>ptsd_agent --run-tests]
+        MCP[MCP Server<br/>AI Tools Integration]
+    end
+    
+    subgraph "Orchestration Layer"
+        Coord[Test Coordinator<br/>Manages execution flow]
+        Config[Config Manager<br/>Loads .ptsd.yaml]
+    end
+    
+    subgraph "Discovery Engine"
+        FileDisc[File Scanner<br/>Find test files]
+        Approx[Fast Estimator<br/>AST-based ~count]
+        Collector[Accurate Collector<br/>pytest --collect-only]
+    end
+    
+    subgraph "Execution Engine"
+        Exec[Test Executor<br/>Runs pytest/jest/etc]
+        Parallel[Parallel Coordinator<br/>Component + test level]
+        Parser[Output Parser<br/>Extract results]
+    end
+    
+    subgraph "Metrics & Analytics"
+        MetricsCol[Metrics Collector<br/>Aggregate results]
+        Aggregator[Aggregator<br/>Cross-component metrics]
+        DiagEngine[Diagnostic Engine<br/>Parse failures/warnings]
+        KnownIssues[Known Issues Registry<br/>Filter known problems]
+        DepTracker[Dependency Tracker<br/>Cross-phase deps]
+    end
+    
+    subgraph "Storage Layer"
+        History[History Store<br/>Test run tracking]
+        DB[(SQLite<br/>test_runs.db)]
+    end
+    
+    subgraph "Presentation Layer"
+        UIRender[UI Renderer<br/>Coordinate display]
+        TreeView[Tree Renderer<br/>Hierarchical view]
+        Progress[Progress Bars<br/>Real-time updates]
+        Terminal[Terminal Handler<br/>blessed library]
+    end
+    
+    CLI --> Coord
+    MCP --> Coord
+    Coord --> Config
+    Coord --> FileDisc
+    
+    FileDisc --> |"Fast Scan<br/>~500ms"| Approx
+    FileDisc --> |"During Init<br/>~5s"| Collector
+    
+    Collector --> Exec
+    Exec --> Parallel
+    Parallel --> |"Progress<br/>Callbacks"| MetricsCol
+    Parallel --> Parser
+    
+    Parser --> DiagEngine
+    DiagEngine --> KnownIssues
+    DiagEngine --> DepTracker
+    
+    MetricsCol --> Aggregator
+    Aggregator --> History
+    History --> DB
+    
+    MetricsCol --> |"Real-time"| UIRender
+    UIRender --> TreeView
+    UIRender --> Progress
+    UIRender --> Terminal
+    
+    style CLI fill:#4a9eff
+    style MCP fill:#4a9eff
+    style Coord fill:#7c3aed
+    style MetricsCol fill:#10b981
+    style UIRender fill:#f59e0b
+```

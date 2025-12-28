@@ -1,0 +1,75 @@
+```mermaid
+erDiagram
+    TEST_RUN ||--o{ COMPONENT_RESULT : contains
+    COMPONENT_RESULT ||--o{ TEST_RESULT : contains
+    COMPONENT_RESULT ||--o{ DIAGNOSTIC : has
+    TEST_RESULT ||--o{ DIAGNOSTIC : generates
+    DIAGNOSTIC }o--|| KNOWN_ISSUE : may_be
+    COMPONENT_RESULT }o--|| DEPENDENCY : blocks
+    
+    TEST_RUN {
+        string run_id PK "UUID"
+        datetime timestamp "Run start time"
+        string project_root "Absolute path"
+        json config ".ptsd.yaml contents"
+        float duration_seconds "Total run time"
+        string git_commit "Git SHA if available"
+    }
+    
+    COMPONENT_RESULT {
+        string id PK "UUID"
+        string run_id FK "Links to TEST_RUN"
+        string component_name "e.g., rag_core"
+        string phase_name "e.g., Phase 2"
+        int total_tests "Total test count"
+        int passed "Passed count"
+        int failed "Failed count"
+        int errors "Error count"
+        int skipped "Skipped count"
+        int warnings "Warning count"
+        float coverage_pct "0.0-100.0"
+        float pass_rate "0.0-100.0"
+        float duration_seconds "Component run time"
+    }
+    
+    TEST_RESULT {
+        string id PK "UUID"
+        string component_id FK "Links to COMPONENT_RESULT"
+        string test_name "Full pytest name"
+        string status "passed|failed|error|skipped"
+        float duration "Test duration in seconds"
+        string output "Stdout/stderr"
+        string traceback "For failures"
+    }
+    
+    DIAGNOSTIC {
+        string id PK "UUID"
+        string component_id FK "Optional"
+        string test_id FK "Optional"
+        string type "warning|failure|error|skip"
+        string category "import_error|assertion_failure|etc"
+        string message "Diagnostic message"
+        string location "file:line"
+        boolean is_known "True if in known_issues"
+        string known_issue_id FK "Links to KNOWN_ISSUE"
+    }
+    
+    KNOWN_ISSUE {
+        string id PK "UUID"
+        string test_name "Full test identifier"
+        string issue_type "warning|failure|error|skip"
+        string reason "Why it's known"
+        date documented_date "When documented"
+        string ticket_id "e.g., JIRA-123"
+        string blocking_component "Optional dependency"
+    }
+    
+    DEPENDENCY {
+        string id PK "UUID"
+        string component_name "Waiting component"
+        string blocks_component "Blocked by this"
+        string reason "Why dependency exists"
+        boolean auto_retest "Retest when unblocked"
+        date created_date "When dependency added"
+    }
+```
