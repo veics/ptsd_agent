@@ -28,26 +28,32 @@ class ProgressiveDisplay:
     MIN_TERM_WIDTH = 80
     
     def _handle_resize(self, old_size, new_size):
-        """Handle terminal resize event.
+        """Handle terminal resize event atomically.
         
         Args:
             old_size: Previous terminal size (width, height)
             new_size: New terminal size (width, height)
         """
-        # Update terminal width
-        self.term_width = max(self.MIN_TERM_WIDTH, new_size[0])
-        
-        # Clear the display buffer to prevent corruption
-        # The next render() call will draw with the new width
-        if self.last_line_count > 0:
-            # Move cursor up and clear all previously rendered lines
-            sys.stdout.write(f"\033[{self.last_line_count}A")
-            for _ in range(self.last_line_count):
-                sys.stdout.write("\033[2K\033[B")
-            sys.stdout.write(f"\033[{self.last_line_count}A")
-            sys.stdout.flush()
-            # Reset line count - next render will update it
-            self.last_line_count = 0
+        # Acquire lock to prevent rendering during resize
+        with self._resize_lock:
+            self._resizing = True
+            
+            # Update terminal width
+            self.term_width = max(self.MIN_TERM_WIDTH, new_size[0])
+            
+            # Clear the display buffer to prevent corruption
+            # The next render() call will draw with the new width
+            if self.last_line_count > 0:
+                # Move cursor up and clear all previously rendered lines
+                sys.stdout.write(f"\033[{self.last_line_count}A")
+                for _ in range(self.last_line_count):
+                    sys.stdout.write("\033[2K\033[B")
+                sys.stdout.write(f"\033[{self.last_line_count}A")
+                sys.stdout.flush()
+                # Reset line count - next render will update it
+                self.last_line_count = 0
+            
+            self._resizing = False
     
     def get_status_color(self, pct):
         """Color based on progress using theme thresholds."""
@@ -112,6 +118,11 @@ class ProgressiveDisplay:
         from .terminal import TerminalManager
         self.terminal = TerminalManager()
         self.terminal.on_resize(self._handle_resize)
+        
+        # NEW: Resize lock to prevent output corruption
+        import threading
+        self._resize_lock = threading.Lock()
+        self._resizing = False
         
         # Use terminal manager for width detection
         self.term_width = max(self.MIN_TERM_WIDTH, self.terminal.get_size()[0])
@@ -361,19 +372,25 @@ class ProgressiveDisplay:
         """Display all lines and track physical line usage"""
         if not self.lines:
             return
+        
+        # Skip rendering if resize is in progress to prevent corruption
+        if self._resizing:
+            return
+        
+        # Acquire lock to prevent resize during render
+        with self._resize_lock:
+            # Refresh width in case of resize (subtract 1 to prevent edge wrapping)
+            self.term_width = max(self.MIN_TERM_WIDTH, self.terminal.get_size()[0] - 1)
             
-        # Refresh width in case of resize (subtract 1 to prevent edge wrapping)
-        self.term_width = max(self.MIN_TERM_WIDTH, shutil.get_terminal_size().columns - 1)
-        
-        # Hide cursor during render
-        sys.stdout.write("\033[?25l")
-        
-        full_output = "\n".join(self.lines) + "\n"
-        sys.stdout.write(full_output)
-        sys.stdout.flush()
-        
-        # Calculate physical lines for next clearing
-        self.last_line_count = self._get_physical_lines(full_output.rstrip('\n'))
+            # Hide cursor during render
+            sys.stdout.write("\033[?25l")
+            
+            full_output = "\n".join(self.lines) + "\n"
+            sys.stdout.write(full_output)
+            sys.stdout.flush()
+            
+            # Calculate physical lines for next clearing
+            self.last_line_count = self._get_physical_lines(full_output.rstrip('\n'))
     
     def next_frame(self):
         """No-op: animations are now time-based"""
