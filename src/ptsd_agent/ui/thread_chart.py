@@ -1,9 +1,11 @@
-"""Version 1: Curve with spacing above bands for clarity.
+"""Thread chart with Braille-based visualization.
 
+Version 1: Curve with spacing above bands for clarity.
 Clear separation between curve line and colored bands.
 """
 
 import time
+import math
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 from enum import Enum
@@ -79,6 +81,22 @@ class ThreadChartRenderer:
         # Add initial empty data point so chart renders from start
         self.add_data_point({})
     
+    def _log_scale(self, value: float) -> float:
+        """Convert thread count to logarithmic scale.
+        
+        Uses log2(value + 1) to handle 0 gracefully and make
+        small values (1-4) more visible.
+        """
+        if value <= 0:
+            return 0
+        return math.log2(value + 1)
+    
+    def _inverse_log_scale(self, log_value: float) -> float:
+        """Convert logarithmic scale back to thread count."""
+        if log_value <= 0:
+            return 0
+        return (2 ** log_value) - 1
+    
     def add_data_point(self, operations: Dict[OperationType, int]):
         """Add data point."""
         point = DataPoint(
@@ -97,18 +115,25 @@ class ThreadChartRenderer:
         return self.PROMINENT_CURVE[idx]
     
     def _get_curve_level(self, point_value: float) -> int:
-        """Get which level the curve is at."""
+        """Get which level the curve is at (using logarithmic scale)."""
         if point_value <= 0:
             return -1
         
-        threads_per_level = self.max_threads / self.height
-        level = int(point_value / threads_per_level)
+        max_log = self._log_scale(self.max_threads)
+        value_log = self._log_scale(point_value)
+        
+        log_per_level = max_log / self.height
+        level = int(value_log / log_per_level)
         return min(level, self.height - 1)
     
     def _get_band_max_level(self, point_value: float) -> float:
-        """Get maximum level for bands (with spacing below curve)."""
-        threads_per_level = self.max_threads / self.height
-        return point_value - (self.CURVE_SPACING * threads_per_level)
+        """Get maximum level for bands (with spacing below curve) using log scale."""
+        if point_value <= 0:
+            return 0
+        
+        # Subtract spacing in thread count, then convert to log
+        adjusted_value = max(0, point_value - self.CURVE_SPACING)
+        return self._log_scale(adjusted_value)
     
     def _is_connecting_line(self, level_idx: int, col_idx: int) -> Optional[str]:
         """Check if we should draw a connecting line."""
@@ -137,18 +162,24 @@ class ThreadChartRenderer:
         self.downsampled_data = self._downsample_data(self.timeline_data, self.chart_width)
         
         lines = []
-        threads_per_level = self.max_threads / self.height
+        max_log = self._log_scale(self.max_threads)
         
         for level_idx in range(self.height - 1, -1, -1):
-            level_max = (level_idx + 1) * threads_per_level
-            level_min = level_idx * threads_per_level
+            # Calculate log-scale boundaries
+            level_log_max = ((level_idx + 1) / self.height) * max_log
+            level_log_min = (level_idx / self.height) * max_log
             
-            # Y-axis label
+            # Convert back to thread counts for display
+            level_max = self._inverse_log_scale(level_log_max)
+            level_min = self._inverse_log_scale(level_log_min)
+            
+            # Y-axis label - show actual thread counts
             if level_idx == self.height - 1:
                 label = f"{self.GRAY}{int(self.max_threads):3d} ┃{self.RESET}"
             elif level_idx == 0:
                 label = f"{self.GRAY}0.0 ┃{self.RESET}"
             else:
+                # Show approximate thread count at this level
                 label = f"{self.GRAY} {int(level_max):2d} ┃{self.RESET}"
             
             line = label + " "
