@@ -393,6 +393,10 @@ class ProgressiveDisplay:
             # Calculate physical lines for next clearing
             self.last_line_count = self._get_physical_lines(full_output.rstrip('\n'))
     
+    def get_last_output(self):
+        """Get the last rendered output (for printing after alternate screen exit).""" 
+        return getattr(self, 'last_output', '')
+    
     def next_frame(self):
         """No-op: animations are now time-based"""
         pass
