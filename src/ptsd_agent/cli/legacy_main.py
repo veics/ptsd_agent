@@ -1050,582 +1050,582 @@ def main():
     
     print() # Space before animation
         
-        # Initialize display for in-place rendering
-        display.last_line_count = 0
-        # Ensure it uses current width logic
-        display.term_width = width
+    # Initialize display for in-place rendering
+    display.last_line_count = 0
+    # Ensure it uses current width logic
+    display.term_width = width
         
         
-        # Start animation thread AFTER initial render is complete
-        animation_thread = threading.Thread(target=animation_loop, daemon=True)
-        animation_thread.start()
+    # Start animation thread AFTER initial render is complete
+    animation_thread = threading.Thread(target=animation_loop, daemon=True)
+    animation_thread.start()
         
-        # Execution loop
-        total_comps = sum(len(phase_configs[p]["components"]) for p in active_phases) or 1
-        comps_finished_ref = [0]
+    # Execution loop
+    total_comps = sum(len(phase_configs[p]["components"]) for p in active_phases) or 1
+    comps_finished_ref = [0]
 
-        def run_phase(p_id):
-            """Run all components in a phase"""
-            p_state = state["phases"][p_id]
-            original_mode = p_state["mode"]
-            p_state["mode"] = "running"
+    def run_phase(p_id):
+        """Run all components in a phase"""
+        p_state = state["phases"][p_id]
+        original_mode = p_state["mode"]
+        p_state["mode"] = "running"
             
-            components = list(p_state["components"].keys())
-            if not components:
-                p_state["progress"] = 100
-                p_state["mode"] = original_mode
-                return
+        components = list(p_state["components"].keys())
+        if not components:
+            p_state["progress"] = 100
+            p_state["mode"] = original_mode
+            return
 
-            if parallel_mode:
-                # Run components in parallel within phase
-                comp_workers = min(len(components), max_workers)
-                with ThreadPoolExecutor(max_workers=comp_workers) as pool:
-                    futures = [pool.submit(run_comp_task, p_id, c_name, comps_finished_ref) for c_name in components]
-                    for f in futures: f.result()
-            else:
-                for c_name in components:
-                    run_comp_task(p_id, c_name, comps_finished_ref)
-
-            p_state["mode"] = "completed" if p_state.get("has_tests") else original_mode
-        
         if parallel_mode:
-            # Parallel mode: run ALL phases concurrently
-            phase_workers = min(len(active_phases), max_workers)
-            with ThreadPoolExecutor(max_workers=phase_workers) as phase_pool:
-                phase_futures = [phase_pool.submit(run_phase, p_id) for p_id in active_phases]
-                for f in phase_futures: f.result()
+            # Run components in parallel within phase
+            comp_workers = min(len(components), max_workers)
+            with ThreadPoolExecutor(max_workers=comp_workers) as pool:
+                futures = [pool.submit(run_comp_task, p_id, c_name, comps_finished_ref) for c_name in components]
+                for f in futures: f.result()
         else:
-            # Sequential mode: run phases one by one
-            for p_id in active_phases:
-                run_phase(p_id)
+            for c_name in components:
+                run_comp_task(p_id, c_name, comps_finished_ref)
 
-        # Final Transition
-        animation_running[0] = False  # Stop animation thread
-        time.sleep(0.15)  # Wait for animation thread to exit
-        state["mode"] = "completed"
-        summary = collector.get_summary()
-        state["overall_progress"] = 100  # 100% complete when all tests finish
-        render_all()
+        p_state["mode"] = "completed" if p_state.get("has_tests") else original_mode
         
-        # Log results
-        logger.log_snapshot(summary, collector.components)
-        
-        # Save run history (JSON + SQLite)
-        from ptsd_agent.storage.legacy_history import get_history_store
-        history = get_history_store()
-        
-        # Build comprehensive run state for history
-        run_state = {
-            "duration_seconds": summary.get("duration", 0),
-            "phases_requested": active_phases,
-            "parallel": parallel_mode,
-            "max_workers": max_workers,
-            "overall_coverage": sum(c.coverage for c in collector.components.values()) / max(len(collector.components), 1),
-            "overall_warnings": summary.get("warnings", sum(c.warnings for c in collector.components.values())),
-            "overall_failures": summary.get("failed", 0),
-            "overall_errors": summary.get("errors", 0),
-            "overall_skipped": summary.get("skipped", 0),
-            "overall_tests": summary.get("total", 0),
-            "overall_pass_rate": summary.get("pass_rate", 0),
-            "overall_progress": 100,
-            "phases": {}
-        }
-        
-        # Add collection_info from discovery if accurate mode was used
-        if discovery_results and 'collection_info' in discovery_results:
-            run_state['collection_info'] = discovery_results['collection_info']
-        
-        # Build phase data
+    if parallel_mode:
+        # Parallel mode: run ALL phases concurrently
+        phase_workers = min(len(active_phases), max_workers)
+        with ThreadPoolExecutor(max_workers=phase_workers) as phase_pool:
+            phase_futures = [phase_pool.submit(run_phase, p_id) for p_id in active_phases]
+            for f in phase_futures: f.result()
+    else:
+        # Sequential mode: run phases one by one
         for p_id in active_phases:
-            p_state = state["phases"][p_id]
-            phase_config = phase_configs.get(p_id, {})
-            phase_metrics = {
-                "name": phase_config.get("name", f"Phase {p_id}"),
-                "status": p_state.get("mode", "completed"),
-                "coverage": 0,
-                "warnings": 0,
-                "failures": 0,
-                "errors": 0,
-                "skipped": 0,
-                "total_tests": 0,
-                "pass_rate": 0,
-                "components": {}
-            }
+            run_phase(p_id)
+
+    # Final Transition
+    animation_running[0] = False  # Stop animation thread
+    time.sleep(0.15)  # Wait for animation thread to exit
+    state["mode"] = "completed"
+    summary = collector.get_summary()
+    state["overall_progress"] = 100  # 100% complete when all tests finish
+    render_all()
+        
+    # Log results
+    logger.log_snapshot(summary, collector.components)
+        
+    # Save run history (JSON + SQLite)
+    from ptsd_agent.storage.legacy_history import get_history_store
+    history = get_history_store()
+        
+    # Build comprehensive run state for history
+    run_state = {
+        "duration_seconds": summary.get("duration", 0),
+        "phases_requested": active_phases,
+        "parallel": parallel_mode,
+        "max_workers": max_workers,
+        "overall_coverage": sum(c.coverage for c in collector.components.values()) / max(len(collector.components), 1),
+        "overall_warnings": summary.get("warnings", sum(c.warnings for c in collector.components.values())),
+        "overall_failures": summary.get("failed", 0),
+        "overall_errors": summary.get("errors", 0),
+        "overall_skipped": summary.get("skipped", 0),
+        "overall_tests": summary.get("total", 0),
+        "overall_pass_rate": summary.get("pass_rate", 0),
+        "overall_progress": 100,
+        "phases": {}
+    }
+        
+    # Add collection_info from discovery if accurate mode was used
+    if discovery_results and 'collection_info' in discovery_results:
+        run_state['collection_info'] = discovery_results['collection_info']
+        
+    # Build phase data
+    for p_id in active_phases:
+        p_state = state["phases"][p_id]
+        phase_config = phase_configs.get(p_id, {})
+        phase_metrics = {
+            "name": phase_config.get("name", f"Phase {p_id}"),
+            "status": p_state.get("mode", "completed"),
+            "coverage": 0,
+            "warnings": 0,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "total_tests": 0,
+            "pass_rate": 0,
+            "components": {}
+        }
             
-            # Aggregate from components
-            coverage_count = 0  # Track components with actual coverage data
-            for c_name in p_state["components"]:
-                metrics = collector.components.get(c_name)
-                if metrics:
-                    # Get diagnostics limits from config
-                    diag_config = project_config.get_diagnostics_config()
-                    limits = diag_config["diagnostics_limits"]
+        # Aggregate from components
+        coverage_count = 0  # Track components with actual coverage data
+        for c_name in p_state["components"]:
+            metrics = collector.components.get(c_name)
+            if metrics:
+                # Get diagnostics limits from config
+                diag_config = project_config.get_diagnostics_config()
+                limits = diag_config["diagnostics_limits"]
                     
-                    comp_data = {
-                        "coverage": metrics.coverage,
-                        "warnings": metrics.warnings,
-                        "failures": metrics.failed,
-                        "errors": metrics.errors,
-                        "skipped": metrics.skipped,
-                        "total_tests": metrics.total,
-                        "pass_rate": metrics.pass_rate,
-                        "progress": 100,
-                        "status": "completed",
-                        "test_path": project_config.get_component_test_path(p_id, c_name),
-                        # DIAGNOSTIC DETAILS: Store with configurable limits
-                        "failure_details": [
-                            {"test": f["test_name"], "reason": f["reason"], "location": f["location"]}
-                            for f in metrics.failures[:limits["max_failures"]]
-                        ],
-                        "error_details": [
-                            {"test": e["test_name"], "error_type": e["error_type"], "message": e["message"]}
-                            for e in metrics.test_errors[:limits["max_errors"]]
-                        ],
-                        "warning_details": [
-                            {"category": w["category"], "message": w["message"], "location": w["location"]}
-                            for w in metrics.warning_details[:limits["max_warnings"]]
-                        ],
-                        "skipped_details": [
-                            {"test": s["test_name"], "reason": s["reason"], "marker": s["marker"]}
-                            for s in metrics.skipped_tests[:limits["max_skipped"]]
-                        ],
-                    }
-                    phase_metrics["components"][c_name] = comp_data
-                    # Only include components with actual coverage data (excludes YAML-only like contracts)
-                    # This matches the display.py _get_aggregated_metrics logic (line 165-167)
-                    if metrics.coverage is not None and metrics.coverage >= 0:
-                        phase_metrics["coverage"] += metrics.coverage
-                        coverage_count += 1
-                    phase_metrics["warnings"] += metrics.warnings
-                    phase_metrics["failures"] += metrics.failed
-                    phase_metrics["errors"] += metrics.errors
-                    phase_metrics["skipped"] += metrics.skipped
-                    phase_metrics["total_tests"] += metrics.total
-            
-            if coverage_count > 0:
-                phase_metrics["coverage"] /= coverage_count
-            if phase_metrics["components"]:
-                total_executed = phase_metrics["total_tests"] - phase_metrics["skipped"]
-                passed = total_executed - phase_metrics["failures"] - phase_metrics["errors"]
-                phase_metrics["pass_rate"] = (passed / total_executed * 100) if total_executed > 0 else 0
-            
-            run_state["phases"][p_id] = phase_metrics
-        
-        # Build file details
-        file_details = {}
-        for c_name, comp_metrics in collector.components.items():
-            file_details[c_name] = {}
-            # Group tests by file (simplified - just counts)
-            for test in comp_metrics.tests:
-                # Extract file from test name if possible
-                file_key = test.name.split("::")[0] if "::" in test.name else "unknown"
-                if file_key not in file_details[c_name]:
-                    file_details[c_name][file_key] = {
-                        "test_count": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0
-                    }
-                file_details[c_name][file_key]["test_count"] += 1
-                if test.status == "passed":
-                    file_details[c_name][file_key]["passed"] += 1
-                elif test.status == "failed":
-                    file_details[c_name][file_key]["failed"] += 1
-                elif test.status == "error":
-                    file_details[c_name][file_key]["errors"] += 1
-                elif test.status == "skipped":
-                    file_details[c_name][file_key]["skipped"] += 1
-        
-        # Save to history (both JSON and SQLite)
-        history_run_id = history.save_run(run_state, file_details=file_details)
-        log_mgr.debug(f"Saved run history: {history_run_id}")
-        
-        # Aggregate coverage if enabled
-        # TODO: Re-enable once coverage_aggregator.py is implemented
-        # if coverage_enabled and not simulation_mode:
-        #     from ptsd_agent.coverage_aggregator import get_coverage_aggregator
-        #     
-        #     aggregator = get_coverage_aggregator()
-        #     
-        #     # Get coverage files collected during test execution
-        #     coverage_files = executor.get_coverage_files()
-        #     
-        #     if coverage_files:
-        #         log_mgr.info(f"Aggregating coverage from {len(coverage_files)} component(s)")
-        #         
-        #         # Combine coverage files
-        #         combined_file = aggregator.combine_coverage_files(run_id)
-        #         
-        #         if combined_file:
-        #             # Generate reports
-        #             formats = []
-        #             if coverage_config.get('generate_html', True):
-        #                 formats.append('html')
-        #             if coverage_config.get('generate_xml', True):
-        #                 formats.append('xml')
-        #             if coverage_config.get('generate_json', True):
-        #                 formats.append('json')
-        #             
-        #             reports = aggregator.generate_reports(run_id, formats=formats)
-        #             
-        #             # Display coverage report paths
-        #             if reports.get('html'):
-        #                 from ptsd_agent.ui.theme import CYAN, DIM, RESET
-        #                 print(f"\n{CYAN}Coverage Reports:{RESET}")
-        #                 print(f"  {DIM}HTML:{RESET} .ptsd/coverage/reports/{run_id}/htmlcov/index.html")
-        #                 if reports.get('xml'):
-        #                     print(f"  {DIM}XML: {RESET} .ptsd/coverage/reports/{run_id}/coverage.xml")
-        #                 if reports.get('json'):
-        #                     print(f"  {DIM}JSON:{RESET} .ptsd/coverage/reports/{run_id}/coverage.json")
-        #                 print()
-        #         
-        #         # Cleanup old coverage if retention is set
-        #         if coverage_retention > 0:
-        #             deleted = aggregator.cleanup_old_coverage(keep_runs=coverage_retention)
-        #             if deleted > 0:
-        #                 log_mgr.info(f"Cleaned up {deleted} old coverage run(s)")
-        
-        # Display log summary if requested
-        if args.show_logs:
-            log_mgr.info("Execution completed", data={"summary": summary})
-            # Build discovery stats from discovery_results if available
-            discovery_stats = None
-            collection_info = None
-            if discovery_results:
-                discovery_stats = {
-                    'total_files': len(discovery_results.get('test_files', [])),
-                    'total_tests': discovery_results.get('total_tests', 0)
+                comp_data = {
+                    "coverage": metrics.coverage,
+                    "warnings": metrics.warnings,
+                    "failures": metrics.failed,
+                    "errors": metrics.errors,
+                    "skipped": metrics.skipped,
+                    "total_tests": metrics.total,
+                    "pass_rate": metrics.pass_rate,
+                    "progress": 100,
+                    "status": "completed",
+                    "test_path": project_config.get_component_test_path(p_id, c_name),
+                    # DIAGNOSTIC DETAILS: Store with configurable limits
+                    "failure_details": [
+                        {"test": f["test_name"], "reason": f["reason"], "location": f["location"]}
+                        for f in metrics.failures[:limits["max_failures"]]
+                    ],
+                    "error_details": [
+                        {"test": e["test_name"], "error_type": e["error_type"], "message": e["message"]}
+                        for e in metrics.test_errors[:limits["max_errors"]]
+                    ],
+                    "warning_details": [
+                        {"category": w["category"], "message": w["message"], "location": w["location"]}
+                        for w in metrics.warning_details[:limits["max_warnings"]]
+                    ],
+                    "skipped_details": [
+                        {"test": s["test_name"], "reason": s["reason"], "marker": s["marker"]}
+                        for s in metrics.skipped_tests[:limits["max_skipped"]]
+                    ],
                 }
-                # Get collection info for accurate counts when --accurate was used
-                collection_info = discovery_results.get('collection_info')
+                phase_metrics["components"][c_name] = comp_data
+                # Only include components with actual coverage data (excludes YAML-only like contracts)
+                # This matches the display.py _get_aggregated_metrics logic (line 165-167)
+                if metrics.coverage is not None and metrics.coverage >= 0:
+                    phase_metrics["coverage"] += metrics.coverage
+                    coverage_count += 1
+                phase_metrics["warnings"] += metrics.warnings
+                phase_metrics["failures"] += metrics.failed
+                phase_metrics["errors"] += metrics.errors
+                phase_metrics["skipped"] += metrics.skipped
+                phase_metrics["total_tests"] += metrics.total
             
-            # Load baseline for delta comparison when targeting specific phases
-            baseline_summary = None
-            if target_phases:
-                from ptsd_agent.storage.legacy_history import get_history_store
-                history = get_history_store()
-                # Find baseline run that wasn't targeting specific phases (full run)
-                all_runs = history.get_all_runs(limit=20)
-                for run in all_runs:
-                    if run.get('run_id') != history.get_latest_run().get('run_id'):
-                        # Use first previous run as baseline
-                        phases_data = run.get('phases', {})
-                        if phases_data:
-                            baseline_summary = {'passed': 0, 'failed': 0, 'errors': 0, 'skipped': 0}
-                            for p_id in target_phases:
-                                p_metrics = phases_data.get(str(p_id), {}).get('metrics', {})
-                                baseline_summary['passed'] += p_metrics.get('passed', 0)
-                                baseline_summary['failed'] += p_metrics.get('failures', 0)
-                                baseline_summary['errors'] += p_metrics.get('errors', 0)
-                                baseline_summary['skipped'] += p_metrics.get('skipped', 0)
+        if coverage_count > 0:
+            phase_metrics["coverage"] /= coverage_count
+        if phase_metrics["components"]:
+            total_executed = phase_metrics["total_tests"] - phase_metrics["skipped"]
+            passed = total_executed - phase_metrics["failures"] - phase_metrics["errors"]
+            phase_metrics["pass_rate"] = (passed / total_executed * 100) if total_executed > 0 else 0
             
-            log_mgr.display_log_summary(
-                show_paths=True, 
-                test_summary=summary,
-                discovery_stats=discovery_stats,
-                baseline_summary=baseline_summary,
-                targeted_phases=target_phases if target_phases else None,
-                collection_info=collection_info
-            )
+        run_state["phases"][p_id] = phase_metrics
         
-        # Display test files by component if requested
-        if args.show_files:
-            GRAY = "\033[90m"
-            CYAN = "\033[96m"
-            RESET = "\033[0m"
-            DIM = "\033[2m"
-            
-            # Section header (no top bar)
-            print()
-            print(f"{GRAY}Test Files by Component{RESET}")
-            print()
-            
-            for p_id in active_phases:
-                phase_name = phase_configs.get(p_id, {}).get('name', f'Phase {p_id}')
-                print(f"  {CYAN}{phase_name}{RESET}")
-                
-                p_state = state["phases"][p_id]
-                for c_name in p_state["components"].keys():
-                    test_path = project_config.get_component_test_path(p_id, c_name)
-                    # Skip components with no test path configured (Task Master components)
-                    if not test_path:
-                        c_state = p_state["components"][c_name]
-                        if c_state.get("taskmaster_component"):
-                            print(f"    {GRAY}├─ {c_name}:{RESET} [Task Master - no tests]")
-                        else:
-                            print(f"    {GRAY}├─ {c_name}:{RESET} [no test path configured]")
-                        continue
-                    path = Path(test_path)
-                    if path.exists():
-                        test_files = list(path.rglob('test_*.py'))
-                        print(f"    {GRAY}├─ {c_name}:{RESET} {len(test_files)} files")
-                        print(f"    {DIM}│  Path: {path.absolute()}{RESET}")
-                        # Show first 3 files as examples
-                        for tf in test_files[:3]:
-                            print(f"    {DIM}│    - {tf.name}{RESET}")
-                        if len(test_files) > 3:
-                            print(f"    {DIM}│    ... and {len(test_files) - 3} more{RESET}")
-                    else:
-                        print(f"    {GRAY}├─ {c_name}:{RESET} (path not found: {test_path})")
-                print()
+    # Build file details
+    file_details = {}
+    for c_name, comp_metrics in collector.components.items():
+        file_details[c_name] = {}
+        # Group tests by file (simplified - just counts)
+        for test in comp_metrics.tests:
+            # Extract file from test name if possible
+            file_key = test.name.split("::")[0] if "::" in test.name else "unknown"
+            if file_key not in file_details[c_name]:
+                file_details[c_name][file_key] = {
+                    "test_count": 0, "passed": 0, "failed": 0, "errors": 0, "skipped": 0
+                }
+            file_details[c_name][file_key]["test_count"] += 1
+            if test.status == "passed":
+                file_details[c_name][file_key]["passed"] += 1
+            elif test.status == "failed":
+                file_details[c_name][file_key]["failed"] += 1
+            elif test.status == "error":
+                file_details[c_name][file_key]["errors"] += 1
+            elif test.status == "skipped":
+                file_details[c_name][file_key]["skipped"] += 1
         
-        # Phase Overview - only show when --overview flag is passed
-        import shutil
-        term_width = shutil.get_terminal_size().columns
-        DIM = "\033[2m"
-        CYAN = "\033[96m"
-        GRAY = "\033[90m"
-        GREEN = "\033[92m"
-        YELLOW = "\033[93m"
-        BLUE = "\033[94m"
-        RED = "\033[91m"
-        RESET = "\033[0m"
+    # Save to history (both JSON and SQLite)
+    history_run_id = history.save_run(run_state, file_details=file_details)
+    log_mgr.debug(f"Saved run history: {history_run_id}")
         
-        # Check if overview should be collapsed
-        collapse_overview = False
-        if args.collapsed is not None:
-            # --collapse with no args means collapse all (empty list)
-            if len(args.collapsed) == 0 or 'overview' in args.collapsed or 'all' in args.collapsed:
-                collapse_overview = True
+    # Aggregate coverage if enabled
+    # TODO: Re-enable once coverage_aggregator.py is implemented
+    # if coverage_enabled and not simulation_mode:
+    #     from ptsd_agent.coverage_aggregator import get_coverage_aggregator
+    #     
+    #     aggregator = get_coverage_aggregator()
+    #     
+    #     # Get coverage files collected during test execution
+    #     coverage_files = executor.get_coverage_files()
+    #     
+    #     if coverage_files:
+    #         log_mgr.info(f"Aggregating coverage from {len(coverage_files)} component(s)")
+    #         
+    #         # Combine coverage files
+    #         combined_file = aggregator.combine_coverage_files(run_id)
+    #         
+    #         if combined_file:
+    #             # Generate reports
+    #             formats = []
+    #             if coverage_config.get('generate_html', True):
+    #                 formats.append('html')
+    #             if coverage_config.get('generate_xml', True):
+    #                 formats.append('xml')
+    #             if coverage_config.get('generate_json', True):
+    #                 formats.append('json')
+    #             
+    #             reports = aggregator.generate_reports(run_id, formats=formats)
+    #             
+    #             # Display coverage report paths
+    #             if reports.get('html'):
+    #                 from ptsd_agent.ui.theme import CYAN, DIM, RESET
+    #                 print(f"\n{CYAN}Coverage Reports:{RESET}")
+    #                 print(f"  {DIM}HTML:{RESET} .ptsd/coverage/reports/{run_id}/htmlcov/index.html")
+    #                 if reports.get('xml'):
+    #                     print(f"  {DIM}XML: {RESET} .ptsd/coverage/reports/{run_id}/coverage.xml")
+    #                 if reports.get('json'):
+    #                     print(f"  {DIM}JSON:{RESET} .ptsd/coverage/reports/{run_id}/coverage.json")
+    #                 print()
+    #         
+    #         # Cleanup old coverage if retention is set
+    #         if coverage_retention > 0:
+    #             deleted = aggregator.cleanup_old_coverage(keep_runs=coverage_retention)
+    #             if deleted > 0:
+    #                 log_mgr.info(f"Cleaned up {deleted} old coverage run(s)")
         
-        if args.overview:
-            # Header is printed inside expanded block, not here
+    # Display log summary if requested
+    if args.show_logs:
+        log_mgr.info("Execution completed", data={"summary": summary})
+        # Build discovery stats from discovery_results if available
+        discovery_stats = None
+        collection_info = None
+        if discovery_results:
+            discovery_stats = {
+                'total_files': len(discovery_results.get('test_files', [])),
+                'total_tests': discovery_results.get('total_tests', 0)
+            }
+            # Get collection info for accurate counts when --accurate was used
+            collection_info = discovery_results.get('collection_info')
             
-            # Load history data for metrics (just saved in this run)
+        # Load baseline for delta comparison when targeting specific phases
+        baseline_summary = None
+        if target_phases:
             from ptsd_agent.storage.legacy_history import get_history_store
             history = get_history_store()
-            runs = history.list_runs(limit=1)
-            phases_data = {}
-            if runs:
-                target_run = history.get_run(runs[0]['run_id'])
-                if target_run:
-                    phases_data = target_run.get('phases', {})
+            # Find baseline run that wasn't targeting specific phases (full run)
+            all_runs = history.get_all_runs(limit=20)
+            for run in all_runs:
+                if run.get('run_id') != history.get_latest_run().get('run_id'):
+                    # Use first previous run as baseline
+                    phases_data = run.get('phases', {})
+                    if phases_data:
+                        baseline_summary = {'passed': 0, 'failed': 0, 'errors': 0, 'skipped': 0}
+                        for p_id in target_phases:
+                            p_metrics = phases_data.get(str(p_id), {}).get('metrics', {})
+                            baseline_summary['passed'] += p_metrics.get('passed', 0)
+                            baseline_summary['failed'] += p_metrics.get('failures', 0)
+                            baseline_summary['errors'] += p_metrics.get('errors', 0)
+                            baseline_summary['skipped'] += p_metrics.get('skipped', 0)
+            
+        log_mgr.display_log_summary(
+            show_paths=True, 
+            test_summary=summary,
+            discovery_stats=discovery_stats,
+            baseline_summary=baseline_summary,
+            targeted_phases=target_phases if target_phases else None,
+            collection_info=collection_info
+        )
         
-            # Load Task Master data for accurate phase status
-            from ptsd_agent.integrations.legacy_taskmaster import TaskMasterLoader
-            tm_loader = TaskMasterLoader()
-            tm_summary = tm_loader.load()
+    # Display test files by component if requested
+    if args.show_files:
+        GRAY = "\033[90m"
+        CYAN = "\033[96m"
+        RESET = "\033[0m"
+        DIM = "\033[2m"
             
-            task_by_id = {}
-            if tm_summary:
-                for task in tm_summary.tasks:
-                    task_by_id[task.id] = task
+        # Section header (no top bar)
+        print()
+        print(f"{GRAY}Test Files by Component{RESET}")
+        print()
+            
+        for p_id in active_phases:
+            phase_name = phase_configs.get(p_id, {}).get('name', f'Phase {p_id}')
+            print(f"  {CYAN}{phase_name}{RESET}")
+                
+            p_state = state["phases"][p_id]
+            for c_name in p_state["components"].keys():
+                test_path = project_config.get_component_test_path(p_id, c_name)
+                # Skip components with no test path configured (Task Master components)
+                if not test_path:
+                    c_state = p_state["components"][c_name]
+                    if c_state.get("taskmaster_component"):
+                        print(f"    {GRAY}├─ {c_name}:{RESET} [Task Master - no tests]")
+                    else:
+                        print(f"    {GRAY}├─ {c_name}:{RESET} [no test path configured]")
+                    continue
+                path = Path(test_path)
+                if path.exists():
+                    test_files = list(path.rglob('test_*.py'))
+                    print(f"    {GRAY}├─ {c_name}:{RESET} {len(test_files)} files")
+                    print(f"    {DIM}│  Path: {path.absolute()}{RESET}")
+                    # Show first 3 files as examples
+                    for tf in test_files[:3]:
+                        print(f"    {DIM}│    - {tf.name}{RESET}")
+                    if len(test_files) > 3:
+                        print(f"    {DIM}│    ... and {len(test_files) - 3} more{RESET}")
+                else:
+                    print(f"    {GRAY}├─ {c_name}:{RESET} (path not found: {test_path})")
+            print()
         
-            # Get all phases from config
-            all_phases = project_config.phases
-            completed_count = 0
-            in_progress_count = 0
-            planned_count = 0
+    # Phase Overview - only show when --overview flag is passed
+    import shutil
+    term_width = shutil.get_terminal_size().columns
+    DIM = "\033[2m"
+    CYAN = "\033[96m"
+    GRAY = "\033[90m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    RED = "\033[91m"
+    RESET = "\033[0m"
+        
+    # Check if overview should be collapsed
+    collapse_overview = False
+    if args.collapsed is not None:
+        # --collapse with no args means collapse all (empty list)
+        if len(args.collapsed) == 0 or 'overview' in args.collapsed or 'all' in args.collapsed:
+            collapse_overview = True
+        
+    if args.overview:
+        # Header is printed inside expanded block, not here
             
-            # Component totals
-            total_comp_done = 0
-            total_comp_wip = 0
-            total_comp_pending = 0
+        # Load history data for metrics (just saved in this run)
+        from ptsd_agent.storage.legacy_history import get_history_store
+        history = get_history_store()
+        runs = history.list_runs(limit=1)
+        phases_data = {}
+        if runs:
+            target_run = history.get_run(runs[0]['run_id'])
+            if target_run:
+                phases_data = target_run.get('phases', {})
+        
+        # Load Task Master data for accurate phase status
+        from ptsd_agent.integrations.legacy_taskmaster import TaskMasterLoader
+        tm_loader = TaskMasterLoader()
+        tm_summary = tm_loader.load()
             
-            if collapse_overview:
-                # COLLAPSED: Count phases AND components, then show only summary lines
-                for phase in all_phases:
-                    p_id = phase['id']
-                    p_status = phase.get('status', '')
-                    components = phase.get('components', [])
+        task_by_id = {}
+        if tm_summary:
+            for task in tm_summary.tasks:
+                task_by_id[task.id] = task
+        
+        # Get all phases from config
+        all_phases = project_config.phases
+        completed_count = 0
+        in_progress_count = 0
+        planned_count = 0
+            
+        # Component totals
+        total_comp_done = 0
+        total_comp_wip = 0
+        total_comp_pending = 0
+            
+        if collapse_overview:
+            # COLLAPSED: Count phases AND components, then show only summary lines
+            for phase in all_phases:
+                p_id = phase['id']
+                p_status = phase.get('status', '')
+                components = phase.get('components', [])
                     
-                    # Count phase status
-                    if 'COMPLETE' in p_status.upper():
+                # Count phase status
+                if 'COMPLETE' in p_status.upper():
+                    completed_count += 1
+                elif 'PROGRESS' in p_status.upper():
+                    in_progress_count += 1
+                else:
+                    planned_count += 1
+                    
+                # Count component statuses using Task Master data
+                for comp in components:
+                    tm_id = comp.get('taskmaster_id')
+                    if tm_id and tm_id in task_by_id:
+                        task = task_by_id[tm_id]
+                        if task.status == 'done':
+                            total_comp_done += 1
+                        elif task.status in ['in-progress', 'review']:
+                            total_comp_wip += 1
+                        else:
+                            total_comp_pending += 1
+                    else:
+                        # Check test-based components from history
+                        has_tests = bool(comp.get('test_path'))
+                        if has_tests:
+                            phase_metrics = phases_data.get(str(p_id), {}).get('metrics', {})
+                            if phase_metrics.get('pass_rate', 0) >= 100:
+                                total_comp_done += 1
+                            elif phase_metrics.get('total_tests', 0) > 0:
+                                total_comp_wip += 1
+                            else:
+                                total_comp_pending += 1
+                        else:
+                            total_comp_pending += 1
+                
+            # Show collapsed Phase Overview with header and triangle at end
+            from ptsd_agent.ui.theme import TRIANGLE_COLLAPSED
+            from ptsd_agent.ui.components import right_align_text
+            print()  # Space after progress bar
+            phase_header = right_align_text(f"  {GRAY}Phase Overview{RESET}", f"{DIM}{TRIANGLE_COLLAPSED}{RESET}", term_width, trailing_space=0)
+            print(phase_header)
+            print(f"  {DIM}Phases:{RESET} {GREEN}{completed_count}{RESET} complete | {YELLOW}{in_progress_count}{RESET} active | {GRAY}{planned_count} planned{RESET}")
+            print(f"  {DIM}Components:{RESET} {GREEN}✓ {total_comp_done}{RESET} done | {YELLOW}◐ {total_comp_wip}{RESET} wip | {GRAY}○ {total_comp_pending}{RESET} pending")
+        else:
+            # EXPANDED: Show full phase details with component breakdown (like standalone --overview)
+            from ptsd_agent.ui.theme import TRIANGLE_EXPANDED, GRAY, RESET, DIM, GREEN, YELLOW, RED
+            from ptsd_agent.ui.theme import get_color_for_value
+            from ptsd_agent.ui.components import right_align_text
+            print()  # Space after progress bar
+            phase_header = right_align_text(f"  {GRAY}Phase Overview{RESET}", f"{DIM}{TRIANGLE_EXPANDED}{RESET}", term_width, trailing_space=0)
+            print(phase_header)
+            print()
+            for phase in all_phases:
+                p_id = phase['id']
+                p_name = phase['name']
+                p_status = phase.get('status', '')
+                components = phase.get('components', [])
+                    
+                has_test_paths = any(c.get('test_path') for c in components)
+                has_taskmaster = any(c.get('taskmaster_id') for c in components)
+                    
+                # Get phase-level metrics from historical run
+                phase_metrics = phases_data.get(str(p_id), {}).get('metrics', {})
+                phase_pass_rate = phase_metrics.get('pass_rate', 0)
+                phase_coverage = phase_metrics.get('coverage', 0)
+                phase_tests = phase_metrics.get('total_tests', 0)
+                    
+                # Get per-component metrics
+                component_metrics = phases_data.get(str(p_id), {}).get('components', {})
+                    
+                comp_done = 0
+                comp_wip = 0
+                comp_pending = 0
+                    
+                if has_test_paths:
+                    for comp in components:
+                        c_name = comp.get('name', '')
+                        c_metrics = component_metrics.get(c_name, {})
+                        c_tests = c_metrics.get('total_tests', 0)
+                        c_pass_rate = c_metrics.get('pass_rate', 0)
+                        c_status = comp.get('status', '').lower()
+                            
+                        if 'complete' in c_status or 'done' in c_status:
+                            comp_done += 1
+                        elif c_tests > 0:
+                            if c_pass_rate >= 100:
+                                comp_done += 1
+                            else:
+                                comp_wip += 1
+                        elif 'progress' in c_status or 'active' in c_status:
+                            comp_wip += 1
+                        else:
+                            comp_pending += 1
+                        
+                    if 'COMPLETE' in p_status.upper() or (comp_done == len(components) and len(components) > 0):
+                        status_color = GREEN
+                        status_text = "Complete"
                         completed_count += 1
-                    elif 'PROGRESS' in p_status.upper():
+                    elif 'PROGRESS' in p_status.upper() or comp_wip > 0 or comp_done > 0:
+                        status_color = YELLOW
+                        status_text = "In Progress"
                         in_progress_count += 1
                     else:
+                        status_color = GRAY
+                        status_text = "Planned"
                         planned_count += 1
-                    
-                    # Count component statuses using Task Master data
+                        
+                    if phase_tests > 0:
+                        p_color = GREEN if phase_pass_rate >= 95 else (YELLOW if phase_pass_rate >= 80 else RED)
+                        cov_color = get_color_for_value("coverage", phase_coverage)
+                        metrics_str = f" | {p_color}{round(phase_pass_rate)}%{RESET} pass | {cov_color}{round(phase_coverage)}%{RESET} cov"
+                    else:
+                        metrics_str = ""
+                            
+                elif has_taskmaster and task_by_id:
                     for comp in components:
                         tm_id = comp.get('taskmaster_id')
                         if tm_id and tm_id in task_by_id:
                             task = task_by_id[tm_id]
                             if task.status == 'done':
-                                total_comp_done += 1
-                            elif task.status in ['in-progress', 'review']:
-                                total_comp_wip += 1
-                            else:
-                                total_comp_pending += 1
-                        else:
-                            # Check test-based components from history
-                            has_tests = bool(comp.get('test_path'))
-                            if has_tests:
-                                phase_metrics = phases_data.get(str(p_id), {}).get('metrics', {})
-                                if phase_metrics.get('pass_rate', 0) >= 100:
-                                    total_comp_done += 1
-                                elif phase_metrics.get('total_tests', 0) > 0:
-                                    total_comp_wip += 1
-                                else:
-                                    total_comp_pending += 1
-                            else:
-                                total_comp_pending += 1
-                
-                # Show collapsed Phase Overview with header and triangle at end
-                from ptsd_agent.ui.theme import TRIANGLE_COLLAPSED
-                from ptsd_agent.ui.components import right_align_text
-                print()  # Space after progress bar
-                phase_header = right_align_text(f"  {GRAY}Phase Overview{RESET}", f"{DIM}{TRIANGLE_COLLAPSED}{RESET}", term_width, trailing_space=0)
-                print(phase_header)
-                print(f"  {DIM}Phases:{RESET} {GREEN}{completed_count}{RESET} complete | {YELLOW}{in_progress_count}{RESET} active | {GRAY}{planned_count} planned{RESET}")
-                print(f"  {DIM}Components:{RESET} {GREEN}✓ {total_comp_done}{RESET} done | {YELLOW}◐ {total_comp_wip}{RESET} wip | {GRAY}○ {total_comp_pending}{RESET} pending")
-            else:
-                # EXPANDED: Show full phase details with component breakdown (like standalone --overview)
-                from ptsd_agent.ui.theme import TRIANGLE_EXPANDED, GRAY, RESET, DIM, GREEN, YELLOW, RED
-                from ptsd_agent.ui.theme import get_color_for_value
-                from ptsd_agent.ui.components import right_align_text
-                print()  # Space after progress bar
-                phase_header = right_align_text(f"  {GRAY}Phase Overview{RESET}", f"{DIM}{TRIANGLE_EXPANDED}{RESET}", term_width, trailing_space=0)
-                print(phase_header)
-                print()
-                for phase in all_phases:
-                    p_id = phase['id']
-                    p_name = phase['name']
-                    p_status = phase.get('status', '')
-                    components = phase.get('components', [])
-                    
-                    has_test_paths = any(c.get('test_path') for c in components)
-                    has_taskmaster = any(c.get('taskmaster_id') for c in components)
-                    
-                    # Get phase-level metrics from historical run
-                    phase_metrics = phases_data.get(str(p_id), {}).get('metrics', {})
-                    phase_pass_rate = phase_metrics.get('pass_rate', 0)
-                    phase_coverage = phase_metrics.get('coverage', 0)
-                    phase_tests = phase_metrics.get('total_tests', 0)
-                    
-                    # Get per-component metrics
-                    component_metrics = phases_data.get(str(p_id), {}).get('components', {})
-                    
-                    comp_done = 0
-                    comp_wip = 0
-                    comp_pending = 0
-                    
-                    if has_test_paths:
-                        for comp in components:
-                            c_name = comp.get('name', '')
-                            c_metrics = component_metrics.get(c_name, {})
-                            c_tests = c_metrics.get('total_tests', 0)
-                            c_pass_rate = c_metrics.get('pass_rate', 0)
-                            c_status = comp.get('status', '').lower()
-                            
-                            if 'complete' in c_status or 'done' in c_status:
                                 comp_done += 1
-                            elif c_tests > 0:
-                                if c_pass_rate >= 100:
-                                    comp_done += 1
-                                else:
-                                    comp_wip += 1
-                            elif 'progress' in c_status or 'active' in c_status:
+                            elif task.status == 'in-progress':
                                 comp_wip += 1
                             else:
                                 comp_pending += 1
+                        elif tm_id is None:
+                            comp_pending += 1
                         
-                        if 'COMPLETE' in p_status.upper() or (comp_done == len(components) and len(components) > 0):
-                            status_color = GREEN
-                            status_text = "Complete"
-                            completed_count += 1
-                        elif 'PROGRESS' in p_status.upper() or comp_wip > 0 or comp_done > 0:
-                            status_color = YELLOW
-                            status_text = "In Progress"
-                            in_progress_count += 1
-                        else:
-                            status_color = GRAY
-                            status_text = "Planned"
-                            planned_count += 1
-                        
-                        if phase_tests > 0:
-                            p_color = GREEN if phase_pass_rate >= 95 else (YELLOW if phase_pass_rate >= 80 else RED)
-                            cov_color = get_color_for_value("coverage", phase_coverage)
-                            metrics_str = f" | {p_color}{round(phase_pass_rate)}%{RESET} pass | {cov_color}{round(phase_coverage)}%{RESET} cov"
-                        else:
-                            metrics_str = ""
-                            
-                    elif has_taskmaster and task_by_id:
-                        for comp in components:
-                            tm_id = comp.get('taskmaster_id')
-                            if tm_id and tm_id in task_by_id:
-                                task = task_by_id[tm_id]
-                                if task.status == 'done':
-                                    comp_done += 1
-                                elif task.status == 'in-progress':
-                                    comp_wip += 1
-                                else:
-                                    comp_pending += 1
-                            elif tm_id is None:
-                                comp_pending += 1
-                        
-                        total_comps = comp_done + comp_wip + comp_pending
-                        if comp_done == total_comps and total_comps > 0:
-                            status_color = GREEN
-                            status_text = "Complete"
-                            completed_count += 1
-                        elif comp_done > 0 or comp_wip > 0:
-                            status_color = YELLOW
-                            status_text = "In Progress"
-                            in_progress_count += 1
-                        else:
-                            status_color = GRAY
-                            status_text = "Planned"
-                            planned_count += 1
-                        metrics_str = ""
-                    elif len(components) == 0:
-                        status_color = GRAY
-                        status_text = "Not Planned"
-                        planned_count += 1
-                        metrics_str = ""
+                    total_comps = comp_done + comp_wip + comp_pending
+                    if comp_done == total_comps and total_comps > 0:
+                        status_color = GREEN
+                        status_text = "Complete"
+                        completed_count += 1
+                    elif comp_done > 0 or comp_wip > 0:
+                        status_color = YELLOW
+                        status_text = "In Progress"
+                        in_progress_count += 1
                     else:
                         status_color = GRAY
                         status_text = "Planned"
                         planned_count += 1
-                        comp_pending = len(components)
-                        metrics_str = ""
+                    metrics_str = ""
+                elif len(components) == 0:
+                    status_color = GRAY
+                    status_text = "Not Planned"
+                    planned_count += 1
+                    metrics_str = ""
+                else:
+                    status_color = GRAY
+                    status_text = "Planned"
+                    planned_count += 1
+                    comp_pending = len(components)
+                    metrics_str = ""
                     
-                    total_comp_done += comp_done
-                    total_comp_wip += comp_wip
-                    total_comp_pending += comp_pending
+                total_comp_done += comp_done
+                total_comp_wip += comp_wip
+                total_comp_pending += comp_pending
                     
-                    # Build component breakdown string
-                    if comp_done + comp_wip + comp_pending > 0:
-                        comp_parts = []
-                        if comp_wip > 0:
-                            comp_parts.append(f"{YELLOW}◐ {comp_wip}{RESET}")
-                        if comp_done > 0:
-                            comp_parts.append(f"{GREEN}✓ {comp_done}{RESET}")
-                        if comp_pending > 0:
-                            comp_parts.append(f"{GRAY}○ {comp_pending}{RESET}")
-                        comp_str = "|".join(comp_parts)
-                    else:
-                        comp_str = f"{GRAY}n/a{RESET}"
+                # Build component breakdown string
+                if comp_done + comp_wip + comp_pending > 0:
+                    comp_parts = []
+                    if comp_wip > 0:
+                        comp_parts.append(f"{YELLOW}◐ {comp_wip}{RESET}")
+                    if comp_done > 0:
+                        comp_parts.append(f"{GREEN}✓ {comp_done}{RESET}")
+                    if comp_pending > 0:
+                        comp_parts.append(f"{GRAY}○ {comp_pending}{RESET}")
+                    comp_str = "|".join(comp_parts)
+                else:
+                    comp_str = f"{GRAY}n/a{RESET}"
                     
-                    print(f"  {DIM}├─{RESET} Phase {p_id}: {status_color}{status_text}{RESET} [{comp_str}]{metrics_str}")
+                print(f"  {DIM}├─{RESET} Phase {p_id}: {status_color}{status_text}{RESET} [{comp_str}]{metrics_str}")
                 
-                print()
-                print(f"  {DIM}Phases:{RESET} {GREEN}{completed_count}{RESET} complete | {YELLOW}{in_progress_count}{RESET} active | {GRAY}{planned_count} planned{RESET}")
-                print(f"  {DIM}Components:{RESET} {GREEN}✓ {total_comp_done}{RESET} done | {YELLOW}◐ {total_comp_wip}{RESET} wip | {GRAY}○ {total_comp_pending}{RESET} pending")
-            
             print()
-            # Final closing delimiter bar
-            print(f"{DIM}{CYAN}{'▰' * term_width}{RESET}")
+            print(f"  {DIM}Phases:{RESET} {GREEN}{completed_count}{RESET} complete | {YELLOW}{in_progress_count}{RESET} active | {GRAY}{planned_count} planned{RESET}")
+            print(f"  {DIM}Components:{RESET} {GREEN}✓ {total_comp_done}{RESET} done | {YELLOW}◐ {total_comp_wip}{RESET} wip | {GRAY}○ {total_comp_pending}{RESET} pending")
             
-            # DIAGNOSTICS SECTION: Show when --diagnostics flag is set OR config enabled
-            diag_config = project_config.get_diagnostics_config()
-            show_diag = args.diagnostics or diag_config["show_diagnostics"]
+        print()
+        # Final closing delimiter bar
+        print(f"{DIM}{CYAN}{'▰' * term_width}{RESET}")
             
-            if show_diag:
+        # DIAGNOSTICS SECTION: Show when --diagnostics flag is set OR config enabled
+        diag_config = project_config.get_diagnostics_config()
+        show_diag = args.diagnostics or diag_config["show_diagnostics"]
+            
+        if show_diag:
+            print()
+            from ptsd_agent.ui.components import DiagnosticsSection
+            diagnostics = DiagnosticsSection(
+                collector=collector,
+                term_width=term_width,
+                show_diagnostics=True
+            )
+            diag_lines = diagnostics.build()
+            if diag_lines:
+                for line in diag_lines:
+                    print(line)
                 print()
-                from ptsd_agent.ui.components import DiagnosticsSection
-                diagnostics = DiagnosticsSection(
-                    collector=collector,
-                    term_width=term_width,
-                    show_diagnostics=True
-                )
-                diag_lines = diagnostics.build()
-                if diag_lines:
-                    for line in diag_lines:
-                        print(line)
-                    print()
-                    print(f"{DIM}{CYAN}{'▰' * term_width}{RESET}")
-                    print()
+                print(f"{DIM}{CYAN}{'▰' * term_width}{RESET}")
+                print()
             
-            print(f"running \"git fetch\"... ok!")
+        print(f"running \"git fetch\"... ok!")
         
     except KeyboardInterrupt:
         sys.stdout.write("\033[?25h")
