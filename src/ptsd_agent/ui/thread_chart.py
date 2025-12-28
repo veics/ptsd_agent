@@ -1,11 +1,11 @@
-"""Stunning thread chart with smooth Braille curves.
+"""Clean thread chart with colored Braille backgrounds.
 
-Creates elegant curved lines connecting data points using
-Braille characters, with background fills for beautiful visualization.
+Elegant visualization using ONLY Braille characters with
+background colors - no foreground coloring.
 """
 
 import time
-from typing import List, Optional
+from typing import List, Dict
 from dataclasses import dataclass
 from enum import Enum
 
@@ -21,44 +21,31 @@ class OperationType(Enum):
 
 @dataclass
 class DataPoint:
-    """Single data point for thread utilization."""
+    """Single data point with multiple parallel operations."""
     timestamp: float
-    active_threads: int
-    operation_type: OperationType
+    operations: Dict[OperationType, int]
+    
+    @property
+    def total_threads(self) -> int:
+        return sum(self.operations.values())
 
 
 class ThreadChartRenderer:
-    """Renders stunning thread chart with Braille curves."""
+    """Renders thread chart with colored Braille backgrounds."""
     
-    # Braille patterns for smooth curves (connecting points)
-    CURVE_RISE = ['⢠', '⣀', '⣠', '⣤', '⣴', '⣶', '⣷', '⣿']
-    CURVE_FALL = ['⠻', '⠹', '⠱', '⠡', '⠁']
+    # Braille block (full block for now, can vary density later)
+    BRAILLE_BLOCK = '⣿'
     
-    # Background fill characters
-    FILL_CHARS = ['░', '▒', '▓', '█']
+    # Smooth curve patterns for top line
+    CURVE_CHARS = ['⠀', '⠤', '⣀', '⣤', '⣶', '⣿']
     
-    # Color schemes (softer, more elegant)
-    COLORS = {
-        OperationType.DISCOVERY: {
-            'fg': '\033[38;5;110m',
-            'bg': '\033[48;5;17m',
-        },
-        OperationType.EXECUTION: {
-            'fg': '\033[38;5;108m',
-            'bg': '\033[48;5;22m',
-        },
-        OperationType.AI_ANALYSIS: {
-            'fg': '\033[38;5;180m',
-            'bg': '\033[48;5;94m',
-        },
-        OperationType.AUTO_FIX: {
-            'fg': '\033[38;5;174m',
-            'bg': '\033[48;5;52m',
-        },
-        OperationType.CACHE: {
-            'fg': '\033[38;5;109m',
-            'bg': '\033[48;5;23m',
-        },
+    # Background colors ONLY (no foreground)
+    BG_COLORS = {
+        OperationType.DISCOVERY: '\033[48;5;17m',       # Dark blue bg
+        OperationType.EXECUTION: '\033[48;5;22m',       # Dark green bg
+        OperationType.AI_ANALYSIS: '\033[48;5;94m',     # Dark yellow bg
+        OperationType.AUTO_FIX: '\033[48;5;52m',        # Dark red bg
+        OperationType.CACHE: '\033[48;5;23m',           # Dark cyan bg
     }
     
     RESET = '\033[0m'
@@ -73,70 +60,35 @@ class ThreadChartRenderer:
         
         self.timeline_data: List[DataPoint] = []
         self.start_time = time.time()
-        self.downsampled_data: List[DataPoint] = []
     
-    def add_data_point(self, active_threads: int, operation_type: OperationType):
-        """Add data point to timeline."""
+    def add_data_point(self, operations: Dict[OperationType, int]):
+        """Add data point with parallel operations."""
         point = DataPoint(
             timestamp=time.time(),
-            active_threads=active_threads,
-            operation_type=operation_type
+            operations=operations
         )
         self.timeline_data.append(point)
     
-    def _get_char_at_position(self, idx: int, value: float, prev_value: Optional[float], 
-                             next_value: Optional[float], level_min: float, level_max: float, 
-                             op_type: OperationType) -> str:
-        """Get character at this position - curve, fill, or space."""
-        colors = self.COLORS.get(op_type, self.COLORS[OperationType.CACHE])
+    def _get_curve_char(self, value: float) -> str:
+        """Get smooth curve character."""
+        if value <= 0:
+            return self.CURVE_CHARS[0]
         
-        # Empty space below threshold
-        if value <= level_min:
-            return ' '
-        
-        # Check if this is an edge (curve needed)
-        is_rising_edge = prev_value is not None and prev_value < level_min and value >= level_min
-        is_falling_edge = next_value is not None and value >= level_max and next_value < level_max
-        
-        # Rising curve
-        if is_rising_edge:
-            curve_progress = min((value - level_min) / (level_max - level_min), 1.0)
-            curve_idx = int(curve_progress * (len(self.CURVE_RISE) - 1))
-            char = self.CURVE_RISE[curve_idx]
-            return colors['fg'] + char + self.RESET
-        
-        # Falling curve  
-        if is_falling_edge:
-            curve_progress = min((next_value - level_min) / (level_max - level_min), 1.0) if next_value else 0
-            curve_idx = int(curve_progress * (len(self.CURVE_FALL) - 1))
-            char = self.CURVE_FALL[curve_idx]
-            return colors['fg'] + char + self.RESET
-        
-        # Full fill with background
-        if value >= level_max:
-            fill_idx = min(int((value / self.max_threads) * len(self.FILL_CHARS)), len(self.FILL_CHARS) - 1)
-            char = self.FILL_CHARS[fill_idx]
-            return colors['bg'] + colors['fg'] + char + self.RESET
-        
-        # Partial fill - gradient
-        ratio = (value - level_min) / (level_max - level_min)
-        fill_idx = int(ratio * len(self.FILL_CHARS))
-        fill_idx = min(fill_idx, len(self.FILL_CHARS) - 1)
-        char = self.FILL_CHARS[fill_idx]
-        
-        return colors['bg'] + colors['fg'] + char + self.RESET
+        ratio = min(value / self.max_threads, 1.0)
+        idx = int(ratio * (len(self.CURVE_CHARS) - 1))
+        return self.CURVE_CHARS[idx]
     
     def render(self) -> str:
-        """Render stunning Braille curve chart."""
+        """Render Braille chart with background colors."""
         if not self.timeline_data:
             return ""
         
-        self.downsampled_data = self._downsample_data(self.timeline_data, self.chart_width)
+        downsampled = self._downsample_data(self.timeline_data, self.chart_width)
         
         lines = []
         threads_per_level = self.max_threads / self.height
         
-        # Render levels from top to bottom
+        # Render from top to bottom
         for level_idx in range(self.height - 1, -1, -1):
             level_max = (level_idx + 1) * threads_per_level
             level_min = level_idx * threads_per_level
@@ -151,28 +103,39 @@ class ThreadChartRenderer:
             
             line = label + " "
             
-            for idx, point in enumerate(self.downsampled_data):
-                prev_val = self.downsampled_data[idx - 1].active_threads if idx > 0 else None
-                next_val = self.downsampled_data[idx + 1].active_threads if idx < len(self.downsampled_data) - 1 else None
-                
-                char = self._get_char_at_position(idx, point.active_threads, prev_val, next_val,
-                                                 level_min, level_max, point.operation_type)
-                line += char
+            for point in downsampled:
+                if level_idx == self.height - 1:
+                    # Top level - smooth curve (no background)
+                    char = self._get_curve_char(point.total_threads)
+                    line += char
+                else:
+                    # Stacked operation blocks with background colors
+                    rendered = False
+                    
+                    for op_type, thread_count in sorted(point.operations.items(), 
+                                                       key=lambda x: x[1], reverse=True):
+                        if thread_count > level_min:
+                            # This operation is active at this level
+                            bg_color = self.BG_COLORS.get(op_type, '')
+                            line += bg_color + self.BRAILLE_BLOCK + self.RESET
+                            rendered = True
+                            break  # Only one block per column
+                    
+                    if not rendered:
+                        line += ' '
             
             lines.append(line)
         
-        # Beautiful colored timeline axis
+        # Timeline axis with colored dots
         timeline_line = f"{self.GRAY}    ┗━━{self.RESET}"
         
-        prev_op = None
-        for idx, point in enumerate(self.downsampled_data):
-            if prev_op and prev_op != point.operation_type:
-                timeline_line += self.RESET + self.GRAY + "╸" + self.RESET
-            
-            colors = self.COLORS.get(point.operation_type, self.COLORS[OperationType.CACHE])
-            timeline_line += colors['bg'] + " " + self.RESET
-            
-            prev_op = point.operation_type
+        for point in downsampled:
+            if point.operations:
+                dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
+                bg_color = self.BG_COLORS.get(dominant_op, '')
+                timeline_line += bg_color + " " + self.RESET
+            else:
+                timeline_line += " "
         
         timeline_line += self.GRAY + "┛" + self.RESET
         lines.append(timeline_line)
@@ -191,14 +154,13 @@ class ThreadChartRenderer:
         return '\n'.join(lines)
     
     def render_realtime_chart(self) -> str:
-        """Render chart (alias)."""
         return self.render()
     
     def _downsample_data(self, data: List[DataPoint], target_width: int) -> List[DataPoint]:
-        """Downsample data to fit target width."""
+        """Downsample data."""
         if len(data) <= target_width:
             padding = target_width - len(data)
-            return list(data) + [DataPoint(0, 0, OperationType.CACHE) for _ in range(padding)]
+            return list(data) + [DataPoint(0, {}) for _ in range(padding)]
         
         step = len(data) / target_width
         downsampled = []
@@ -209,16 +171,17 @@ class ThreadChartRenderer:
             chunk = data[start_idx:end_idx]
             
             if chunk:
-                avg_threads = sum(p.active_threads for p in chunk) // len(chunk)
-                most_common_op = max(
-                    set(p.operation_type for p in chunk), 
-                    key=lambda x: sum(1 for p in chunk if p.operation_type == x)
-                )
+                agg_ops: Dict[OperationType, int] = {}
+                for point in chunk:
+                    for op_type, threads in point.operations.items():
+                        agg_ops[op_type] = agg_ops.get(op_type, 0) + threads
+                
+                for op_type in agg_ops:
+                    agg_ops[op_type] //= len(chunk)
                 
                 downsampled.append(DataPoint(
                     timestamp=chunk[0].timestamp,
-                    active_threads=avg_threads,
-                    operation_type=most_common_op
+                    operations=agg_ops
                 ))
         
         return downsampled
