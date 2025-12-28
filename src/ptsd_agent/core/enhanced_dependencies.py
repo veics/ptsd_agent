@@ -73,6 +73,48 @@ class ExternalDependency:
         except Exception as e:
             logger.warning(f"Error checking {self.package}: {e}")
             return False
+    
+    def check_for_updates(self) -> Optional[str]:
+        """Check if a newer version is available on PyPI.
+        
+        Returns:
+            Latest version string if available, None if up-to-date or error
+        """
+        try:
+            import urllib.request
+            import json
+            
+            url = f"https://pypi.org/pypi/{self.package}/json"
+            with urllib.request.urlopen(url, timeout=5) as response:
+                data = json.loads(response.read())
+                latest_version = data['info']['version']
+                
+                # Check if latest satisfies our requirements
+                if self.min_version:
+                    if version.parse(latest_version) >= version.parse(self.min_version):
+                        # Check current installation
+                        try:
+                            current = importlib.metadata.version(self.package)
+                            if version.parse(latest_version) > version.parse(current):
+                                return latest_version
+                        except importlib.metadata.PackageNotFoundError:
+                            return latest_version  # Not installed, latest available
+                
+                return None
+                
+        except Exception as e:
+            logger.debug(f"Could not check updates for {self.package}: {e}")
+            return None
+    
+    def get_update_command(self) -> str:
+        """Get pip command to update this dependency.
+        
+        Returns:
+            pip install command string
+        """
+        if self.min_version:
+            return f"pip install '{self.package}>={self.min_version}'"
+        return f"pip install --upgrade {self.package}"
 
 
 @dataclass
@@ -271,3 +313,78 @@ class DependencyManager:
             'external_blockers': [str(d) for d in external],
             'can_auto_retest': not external  # Can retest if only internal blockers
         }
+    
+    def check_external_updates(self) -> Dict[str, Any]:
+        """Check all external dependencies for available updates.
+        
+        Returns:
+            Dictionary with update information for each blocked dependency
+        """
+        updates = {
+            'available': [],
+            'blockers_resolved': [],
+            'commands': []
+        }
+        
+        for spec in self.specs.values():
+            for ext_dep in spec.external_deps:
+                if not ext_dep.is_satisfied():
+                    # Check for updates
+                    latest = ext_dep.check_for_updates()
+                    
+                    if latest:
+                        updates['available'].append({
+                            'package': ext_dep.package,
+                            'latest': latest,
+                            'required': ext_dep.min_version,
+                            'component': spec.component,
+                            'phase': spec.phase_id,
+                            'reason': ext_dep.reason
+                        })
+                        
+                        # If latest satisfies requirement, blocker is resolved
+                        if ext_dep.min_version:
+                            if version.parse(latest) >= version.parse(ext_dep.min_version):
+                                updates['blockers_resolved'].append({
+                                    'package': ext_dep.package,
+                                    'version': latest,
+                                    'component': f"Phase {spec.phase_id}:{spec.component}"
+                                })
+                                updates['commands'].append(ext_dep.get_update_command())
+        
+        return updates
+    
+    def auto_update_check(self) -> str:
+        """Run update check and generate human-readable report.
+        
+        Returns:
+            Formatted string with update information
+        """
+        updates = self.check_external_updates()
+        
+        if not updates['available']:
+            return "✓ All external dependencies up-to-date or no updates available"
+        
+        lines = ["External Dependency Updates Available:\n"]
+        
+        if updates['blockers_resolved']:
+            lines.append("🎉 BLOCKERS RESOLVED:")
+            for blocker in updates['blockers_resolved']:
+                lines.append(f"  ✓ {blocker['package']} {blocker['version']} now available")
+                lines.append(f"    → Unblocks: {blocker['component']}")
+            lines.append("")
+        
+        if updates['available']:
+            lines.append("📦 Updates available:")
+            for upd in updates['available']:
+                lines.append(f"  • {upd['package']}: {upd['latest']} (requires >={upd['required']})")
+                lines.append(f"    Component: Phase {upd['phase']}:{upd['component']}")
+                if upd['reason']:
+                    lines.append(f"    Reason: {upd['reason']}")
+        
+        if updates['commands']:
+            lines.append("\n💡 Run these commands to resolve blockers:")
+            for cmd in updates['commands']:
+                lines.append(f"  {cmd}")
+        
+        return "\n".join(lines)
