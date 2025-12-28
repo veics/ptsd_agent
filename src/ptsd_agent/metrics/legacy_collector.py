@@ -60,6 +60,7 @@ class MetricsCollector:
     def __init__(self):
         self.components: Dict[str, ComponentMetrics] = {}
         self.start_time = time.time()
+        self.skip_events: List[Dict] = []  # Track skip events for audit trail
 
     def get_component(self, name: str) -> ComponentMetrics:
         if name not in self.components:
