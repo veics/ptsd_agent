@@ -1,5 +1,49 @@
 # PTSD Agent Diagnostics Guide
 
+## Display Modes
+
+### Flat View (Default)
+
+Traditional list-based diagnostic display:
+
+```
+Diagnostics (3 wr | 2 sk | 1 fl)                                    ▼
+
+    === Warnings (3) ===
+    [1] DeprecationWarning: message...
+    [2] UserWarning: message...
+    
+    === Skipped Tests (2) ===
+    [1] component::test_name
+        → Reason: ... (SKIPIF)
+```
+
+### Tree View (New in v0.7.0)
+
+Hierarchical tree display matching test execution structure:
+
+```
+Diagnostics (15 total: [8 wr | 4 sk | 2 fl | 1 er])                 ▼
+
+✓ Phase 1: Architecture & Foundation                 [8 wr | 4 sk] ▼
+  ├─ architecture                                         [7 wr] ▼
+  │  └─ Warnings (7)                                              ▼
+  │     ├─ tests/integration/architecture/test_core.py       (3) ►
+  │     └─ tests/integration/architecture/test_schema.py     (4) ►
+  │
+  └─ acl                                              [1 wr | 4 sk] ▼
+     ├─ Warnings (1)                                                ►
+     └─ Skipped Tests (4)                                          ▼
+        └─ tests/acl/test_permissions.py                       (4) ▼
+```
+
+**Benefits:**
+- Shows hierarchy: Phase → Component → Type → File → Test
+- Matches test execution tree structure
+- File-level grouping for better context
+- Smart filtering (hides clean branches)
+- Easier to locate specific component issues
+
 ## Overview
 
 The PTSD Agent provides comprehensive diagnostic capabilities to help you understand test failures, warnings, and skip reasons. This guide shows you how to effectively use the diagnostic features.
@@ -33,6 +77,14 @@ Displays detailed diagnostic information including:
 - Failure details with stack traces
 - Error messages with locations
 
+### Enable Tree View
+
+```bash
+ptsd_agent --diagnostics --diagnostics-tree
+```
+
+Shows diagnostics in hierarchical tree format instead of flat list.
+
 ### Filter by Phase
 
 ```bash
@@ -52,10 +104,10 @@ Run and show diagnostics only for the specified component.
 ### Combine Filters
 
 ```bash
-ptsd_agent --phase 2 --component models --diagnostics
+ptsd_agent --phase 2 --component models --diagnostics --diagnostics-tree
 ```
 
-Show detailed diagnostics for the `models` component in Phase 2.
+Show detailed tree-view diagnostics for the `models` component in Phase 2.
 
 ## Understanding Diagnostics
 
@@ -113,30 +165,43 @@ diagnose(include=["logs", "history"])
 
 ## Configuration
 
-Configure diagnostic behavior in `.ptsd.yaml`:
+Configure diagnostic behavior in `ptsd_agent.config.json`:
 
-```yaml
-diagnostics:
-  show_warnings: true
-  show_skipped: true
-  max_warnings_displayed: 20
-  capture_warning_source: true  # NEW in v0.7.0
+```json
+{
+  "diagnostics": {
+    "show_diagnostics": false,
+    "use_tree_view": false,
+    "diagnostics_limits": {
+      "max_warnings": 20,
+      "max_errors": 10,
+      "max_failures": 10,
+      "max_skipped": 50
+    }
+  }
+}
 ```
+
+**Options:**
+- `show_diagnostics`: Enable diagnostics by default
+- `use_tree_view`: Use tree view instead of flat view
+- `diagnostics_limits`: Limit displayed items per category
 
 ## Best Practices
 
 1. **Start broad, then narrow**: Run full suite first, then use filters
-2. **Check warnings regularly**: Warnings often indicate future problems
-3. **Document skip reasons**: Use clear, actionable skip messages
-4. **Use diagnostic help**: Run with `--diagnostics` to understand issues
-5. **Filter effectively**: Use `--phase` and `--component` to focus
+2. **Use tree view for complex projects**: Better for multi-phase/component setups
+3. **Use flat view for quick scans**: Faster to read for simple projects
+4. **Check warnings regularly**: Warnings often indicate future problems
+5. **Document skip reasons**: Use clear, actionable skip messages
+6. **Filter effectively**: Use `--phase` and `--component` to focus
 
 ## Examples
 
-### Find all warnings in Phase 2
+### Find all warnings in Phase 2 (tree view)
 
 ```bash
-ptsd_agent --phase 2 --diagnostics | grep "Warning"
+ptsd_agent --phase 2 --diagnostics --diagnostics-tree | grep "Warning"
 ```
 
 ### Check skip reasons for a component
@@ -145,10 +210,10 @@ ptsd_agent --phase 2 --diagnostics | grep "Warning"
 ptsd_agent --component auth --diagnostics | grep "Reason:"
 ```
 
-### Get full diagnostic report
+### Get full diagnostic report (tree view)
 
 ```bash
-ptsd_agent --diagnostics > diagnostics_report.txt
+ptsd_agent --diagnostics --diagnostics-tree > diagnostics_report.txt
 ```
 
 ## Troubleshooting
@@ -159,11 +224,11 @@ A: Ensure you're using `--diagnostics` flag or have enabled it in config
 **Q: Too many warnings?**  
 A: Use `max_warnings_displayed` in config to limit output
 
-**Q: Warning source file missing?**  
-A: Update to v0.7.0+ which includes warning source attribution
+**Q: Tree view not working?**  
+A: Ensure both `--diagnostics` and `--diagnostics-tree` flags are set
 
-**Q: How to filter known issues?**  
-A: Use the Known Issues Registry (coming in Phase 4)
+**Q: How to make tree view default?**  
+A: Set `"use_tree_view": true` in `ptsd_agent.config.json`
 
 ---
 
