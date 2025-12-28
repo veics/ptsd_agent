@@ -24,6 +24,7 @@ def main():
     parser.add_argument("--phase", "--phases", nargs='*', dest="phase", help="Run specific phases (space separated, e.g. 1 3 4)")
     parser.add_argument("--component", type=str,
                        help="Filter by component name(s). Use comma-separated for multiple (e.g., 'acl,contracts')")
+    parser.add_argument("--project", type=str, help="Project directory (changes working directory before loading config)")
     parser.add_argument("--simulate", action="store_true", help="Skip test execution, show results from last run")
     parser.add_argument("--history", action="store_true", help="Show recent run history")
     parser.add_argument("--detailed-history", action="store_true", help="Show detailed history with phase/component breakdown")
@@ -105,6 +106,16 @@ def main():
     else:
         max_workers = args.parallel  # User-specified
         parallel_mode = True
+    
+    # Change to project directory if specified
+    if args.project:
+        import os
+        project_dir = os.path.abspath(args.project)
+        if not os.path.isdir(project_dir):
+            print(f"Error: Project directory does not exist: {project_dir}")
+            sys.exit(1)
+        os.chdir(project_dir)
+        print(f"Changed to project directory: {project_dir}")
     
     # Initialize logging
     # log_mgr = get_log_manager()  # TODO: Fix module path
