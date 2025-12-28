@@ -115,5 +115,7 @@ def get_progress_bar_config():
         "active_color": CYAN,
         "inactive_color": GRAY,
         "blinking_color": ORANGE,
-        "reset": RESET
+        "reset": RESET,
+        "filled_char": "▰",
+        "empty_char": "▱"
     }
