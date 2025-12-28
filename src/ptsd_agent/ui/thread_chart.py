@@ -110,6 +110,11 @@ class ThreadChartRenderer:
     
     def add_data_point(self, operations: Dict[OperationType, int]):
         """Add data point."""
+        # FILE DEBUG - WILL persist
+        with open("/tmp/chart_debug.log", "a") as f:
+            f.write(f"add_data_point called: ops={operations}\n")
+            f.flush()
+        
         # FORCE INJECT sample data if empty
         if not operations or sum(operations.values()) == 0:
             import random
@@ -117,6 +122,9 @@ class ThreadChartRenderer:
                 OperationType.EXECUTION: random.randint(2, 5),
                 OperationType.DISCOVERY: random.randint(1, 3),
             }
+            with open("/tmp/chart_debug.log", "a") as f:
+                f.write(f"  -> INJECTED: {operations}\n")
+                f.flush()
         
         point = DataPoint(
             timestamp=time.time(),
