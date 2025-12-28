@@ -267,14 +267,14 @@ class ThreadChartRenderer:
                 else:
                     timeline_line += f"{self.GRAY}━{self.RESET}"
         
-        # Gap + grey to terminal width
+        # Gap + grey extension to terminal width
         timeline_line += " "
         visible_so_far = 7 + (last_idx + 1 if last_idx >= 0 else 0) + 1
         remaining = tw - visible_so_far - 1
         if remaining > 0:
-            timeline_line += f"{self.GREEN}{'━' * remaining}┛{self.RESET}"
+            timeline_line += f"{self.GRAY}{'━' * remaining}┛{self.RESET}"  # GRAY extension
         else:
-            timeline_line += f"{self.GREEN}┛{self.RESET}"
+            timeline_line += f"{self.GRAY}┛{self.RESET}"
         
         lines.append(timeline_line)
         
