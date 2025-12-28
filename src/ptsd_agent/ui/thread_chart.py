@@ -1,10 +1,12 @@
-"""Clean thread chart with colored Braille characters (foreground only).
+"""Beautiful floating dot curve with dense operation blocks.
 
-Each colored Braille block represents an operation type running.
+Two-layer design:
+- Top: Sparse colored Braille dots forming smooth curve
+- Bottom: Dense Braille blocks showing operation levels
 """
 
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 from enum import Enum
 
@@ -30,21 +32,21 @@ class DataPoint:
 
 
 class ThreadChartRenderer:
-    """Renders thread chart with colored Braille characters."""
+    """Renders chart with floating dot curve and dense blocks."""
     
-    # Braille block
-    BRAILLE_BLOCK = '⣿'
+    # Sparse Braille dots for curve (single-dot patterns)
+    SPARSE_DOTS = ['⠀', '⠁', '⠂', '⠄', '⠈', '⠐', '⠠', '⡀']
     
-    # Smooth curve patterns
-    CURVE_CHARS = ['⠀', '⠤', '⣀', '⣤', '⣶', '⣿']
+    # Dense Braille blocks for filled areas (6-8 dots filled)
+    DENSE_BLOCKS = ['⣤', '⣦', '⣶', '⣷', '⣿']
     
-    # FOREGROUND colors only (colored Braille characters)
+    # Foreground colors
     FG_COLORS = {
-        OperationType.DISCOVERY: '\033[38;5;110m',      # Soft blue
-        OperationType.EXECUTION: '\033[38;5;108m',       # Soft green
-        OperationType.AI_ANALYSIS: '\033[38;5;180m',     # Soft yellow
-        OperationType.AUTO_FIX: '\033[38;5;174m',        # Soft red
-        OperationType.CACHE: '\033[38;5;109m',           # Soft cyan
+        OperationType.DISCOVERY: '\033[38;5;110m',
+        OperationType.EXECUTION: '\033[38;5;108m',
+        OperationType.AI_ANALYSIS: '\033[38;5;180m',
+        OperationType.AUTO_FIX: '\033[38;5;174m',
+        OperationType.CACHE: '\033[38;5;109m',
     }
     
     RESET = '\033[0m'
@@ -61,24 +63,42 @@ class ThreadChartRenderer:
         self.start_time = time.time()
     
     def add_data_point(self, operations: Dict[OperationType, int]):
-        """Add data point with parallel operations."""
+        """Add data point."""
         point = DataPoint(
             timestamp=time.time(),
             operations=operations
         )
         self.timeline_data.append(point)
     
-    def _get_curve_char(self, value: float) -> str:
-        """Get smooth curve character."""
+    def _get_sparse_dot(self, value: float) -> str:
+        """Get sparse Braille dot for curve."""
         if value <= 0:
-            return self.CURVE_CHARS[0]
+            return self.SPARSE_DOTS[0]
         
         ratio = min(value / self.max_threads, 1.0)
-        idx = int(ratio * (len(self.CURVE_CHARS) - 1))
-        return self.CURVE_CHARS[idx]
+        idx = int(ratio * (len(self.SPARSE_DOTS) - 1))
+        return self.SPARSE_DOTS[idx]
+    
+    def _get_dense_block(self, value: float, level_threads: float) -> str:
+        """Get dense Braille block."""
+        if value <= 0:
+            return ' '
+        
+        ratio = min(value / level_threads, 1.0)
+        idx = int(ratio * (len(self.DENSE_BLOCKS) - 1))
+        return self.DENSE_BLOCKS[idx]
+    
+    def _is_curve_level(self, level_idx: int, total_levels: int, point_value: float) -> bool:
+        """Check if curve should be drawn at this level."""
+        threads_per_level = self.max_threads / total_levels
+        level_max = (level_idx + 1) * threads_per_level
+        level_min = level_idx * threads_per_level
+        
+        # Curve floats at the exact thread level
+        return level_min <= point_value < level_max
     
     def render(self) -> str:
-        """Render Braille chart with foreground colors."""
+        """Render floating dot curve with dense blocks."""
         if not self.timeline_data:
             return ""
         
@@ -103,22 +123,30 @@ class ThreadChartRenderer:
             line = label + " "
             
             for point in downsampled:
-                if level_idx == self.height - 1:
-                    # Top level - smooth curve
-                    char = self._get_curve_char(point.total_threads)
-                    line += char
+                # Check if curve should be drawn here (floating on top)
+                if self._is_curve_level(level_idx, self.height, point.total_threads):
+                    # Draw sparse colored dot for curve
+                    dot = self._get_sparse_dot(point.total_threads)
+                    if point.operations:
+                        dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
+                        color = self.FG_COLORS.get(dominant_op, '')
+                        line += color + dot + self.RESET
+                    else:
+                        line += dot
                 else:
-                    # Stacked colored Braille blocks (foreground color)
+                    # Draw dense block for filled area below curve
                     rendered = False
                     
                     for op_type, thread_count in sorted(point.operations.items(), 
                                                        key=lambda x: x[1], reverse=True):
                         if thread_count > level_min:
-                            # Colored Braille character
-                            fg_color = self.FG_COLORS.get(op_type, '')
-                            line += fg_color + self.BRAILLE_BLOCK + self.RESET
-                            rendered = True
-                            break
+                            # Dense block with color
+                            block = self._get_dense_block(thread_count - level_min, threads_per_level)
+                            if block != ' ':
+                                color = self.FG_COLORS.get(op_type, '')
+                                line += color + block + self.RESET
+                                rendered = True
+                                break
                     
                     if not rendered:
                         line += ' '
@@ -131,8 +159,8 @@ class ThreadChartRenderer:
         for point in downsampled:
             if point.operations:
                 dominant_op = max(point.operations.items(), key=lambda x: x[1])[0]
-                fg_color = self.FG_COLORS.get(dominant_op, '')
-                timeline_line += fg_color + "⠒" + self.RESET
+                color = self.FG_COLORS.get(dominant_op, '')
+                timeline_line += color + "⠒" + self.RESET
             else:
                 timeline_line += " "
         
