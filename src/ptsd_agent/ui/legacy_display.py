@@ -18,7 +18,7 @@ from .theme import (
     TRIANGLE_EXPANDED, TRIANGLE_COLLAPSED
 )
 # Import shared components
-from .components import Spinner, ForwardAnimation, ProgressBar, MetricsBlock, BottomBar, DiagnosticsSection
+from .legacy_components import Spinner, ForwardAnimation, ProgressBar, MetricsBlock, BottomBar, DiagnosticsSection
 
 
 class ProgressiveDisplay:

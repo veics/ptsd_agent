@@ -5,10 +5,10 @@ import threading
 import signal
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from .ui.display import ProgressiveDisplay
-from .metrics.collector import MetricsCollector
-from .metrics.logger import MetricsLogger
-from .executor import TestExecutor
+from ptsd_agent.ui.legacy_display import ProgressiveDisplay
+from ptsd_agent.metrics.legacy_collector import MetricsCollector
+from ptsd_agent.metrics.legacy_logger import MetricsLogger
+from ptsd_agent.execution.legacy_executor import TestExecutor
 from ptsd_agent.config import load_config
 from ptsd_agent.report_logging import get_log_manager
 

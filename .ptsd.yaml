@@ -1,0 +1,361 @@
+# =============================================================================
+# PTSD Agent Configuration File
+# Complete example with all available options and detailed descriptions
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Project Information
+# -----------------------------------------------------------------------------
+project:
+  name: "RAGE"
+  description: "Real-time Augmented Generation Engine"
+  # Optional: Project description for documentation and reports
+
+# -----------------------------------------------------------------------------
+# Phase and Component Structure
+# Defines the test architecture with phases and their components
+# -----------------------------------------------------------------------------
+phases:
+  # Phase 1: Foundation and Architecture
+  - id: 1
+    name: "Phase 1: Architecture & Foundation"
+    status: "✅ COMPLETE"  # Optional: Display status (✅ COMPLETE, 🔄 IN PROGRESS, 🔲 PLANNED)
+    components:
+      - name: "architecture"
+        test_path: "tests/integration/architecture/"
+        # test_path: Path to test directory for this component
+        # If omitted, component won't be included in test runs
+      
+      - name: "contracts"
+        test_path: "tests/integration/contracts/"
+      
+      - name: "acl"
+        test_path: "services/acl/tests/"
+  
+  # Phase 2: Core Backend Services
+  - id: 2
+    name: "Phase 2: Core Backend Services"
+    status: "🔄 IN PROGRESS (38% Production Ready)"
+    components:
+      - name: "rag_core"
+        test_path: "services/rag_core/tests/"
+      
+      - name: "identity_mapping"
+        test_path: "services/identity_mapping/tests/"
+      
+      - name: "profile"
+        test_path: "services/profile/tests/"
+      
+      - name: "dataset_builder"
+        test_path: "services/dataset_builder/tests/"
+      
+      - name: "training_orchestrator"
+        test_path: "services/training_orchestrator/tests/"
+      
+      - name: "cdn"
+        test_path: "services/cdn/tests/"
+      
+      - name: "search_engine"
+        test_path: "services/search_engine/tests/"
+  
+  # Phase 3: Integrations with Task Master
+  # Components without test_path use taskmaster_id for status tracking
+  - id: 3
+    name: "Phase 3: Integrations, UIs & Agents"
+    status: "🔄 IN PROGRESS"
+    components:
+      - name: "confluence_ingestor"
+        taskmaster_id: 36
+        test_path: "services/confluence_ingestor/tests/"
+        # taskmaster_id: Task Master AI task ID for tracking status
+        # Used for components that aren't test-driven yet
+      
+      - name: "jira_ingestor"
+        taskmaster_id: 37
+        # Component with only taskmaster_id (no tests yet)
+      
+      - name: "slack_bot"
+        taskmaster_id: 38
+      
+      - name: "admin_ui_core"
+        taskmaster_id: 39
+      
+      - name: "admin_ui_users"
+        taskmaster_id: 40
+      
+      - name: "admin_ui_ingestion"
+        taskmaster_id: 41
+      
+      - name: "user_ui_search"
+        taskmaster_id: 42
+      
+      - name: "mcp_protocol"
+        taskmaster_id: 43
+      
+      - name: "neural_agents"
+        taskmaster_id: 44
+      
+      - name: "synthesizer_agents"
+        taskmaster_id: 45
+  
+  # Future Phases (Planned)
+  - id: 4
+    name: "Phase 4: Analytics & Advanced Features"
+    status: "🔲 PLANNED"
+    components: []
+  
+  - id: 5
+    name: "Phase 5: Enterprise Scale"
+    status: "🔲 PLANNED"
+    components: []
+  
+  - id: 6
+    name: "Phase 6: Ecosystem & Platform"
+    status: "🔲 PLANNED"
+    components: []
+  
+  - id: 7
+    name: "Phase 7: Distributed Network"
+    status: "🔲 PLANNED"
+    components: []
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# Historical log storage with retention policies
+# -----------------------------------------------------------------------------
+logging:
+  log_dir: ".ptsd_logs"
+  # Directory for storing run logs and historical data
+  
+  retention_days: -1
+  # Number of days to retain logs. Use -1 for infinite retention
+  
+  max_log_size_mb: 100
+  # Maximum size for individual log files before rotation
+  
+  format: "json"
+  # Log format: "json", "text", or "both"
+  # json: Machine-readable JSONL format
+  # text: Human-readable plain text
+  # both: Generate both formats
+
+# -----------------------------------------------------------------------------
+# Parallel Execution
+# Controls concurrent worker processes across all execution levels
+# -----------------------------------------------------------------------------
+parallel:
+  max_workers: 0
+  # Maximum number of parallel worker processes
+  # 0 = auto-detect (CPU count)
+  # >0 = specific worker count
+  # Applies to ALL parallel execution:
+  #   - Discovery (file counting)
+  #   - Test collection  
+  #   - Test execution (phases and components)
+  # CLI override: --parallel N
+  # Default: 0 (auto-detect CPU count)
+
+# -----------------------------------------------------------------------------
+# Theme and Display Configuration
+# Customizes UI colors, thresholds, and visual styling
+# -----------------------------------------------------------------------------
+theme:
+  # Status Colors
+  # Controls spinner/indicator colors based on execution state
+  # Values: red, red_bright, red_dark, pink_light, green, yellow, orange, cyan, gray, dim
+  status_colors:
+    error: "red_bright"      # Most critical - used for errors
+    failure: "pink_light"    # Test failures - light pink/red
+    warning: "orange"        # Warnings - orange/yellow
+    in_progress: "yellow"    # Active execution - yellow
+    success: "green"         # Successful completion - green
+  
+  # Metric Thresholds
+  # Defines color coding for metrics based on value ranges
+  # Format: [threshold_value, color_name]
+  # Values >= threshold get that color (checked in order from highest to lowest)
+  thresholds:
+    # Test pass rate thresholds (percentage)
+    pass_rate:
+      - [100, "green"]    # 100% = green (perfect)
+      - [80, "orange"]    # 80-99% = orange (needs work)
+      - [0, "yellow"]     # 0-79% = yellow (critical)
+    
+    # Coverage thresholds (percentage)
+    coverage:
+      - [90, "green"]     # 90%+ = green (excellent)
+      - [70, "cyan"]      # 70-89% = cyan (good)
+      - [0, "yellow"]     # 0-69% = yellow (needs improvement)
+    
+    # Warning count thresholds
+    warnings:
+      - [1, "orange"]     # 1+ warnings = orange
+      - [0, "dim"]        # 0 warnings = dim (de-emphasized)
+    
+    # Failure count thresholds
+    failures:
+      - [1, "red"]        # 1+ failures = red
+      - [0, "dim"]        # 0 failures = dim
+    
+    # Error count thresholds
+    errors:
+      - [1, "red_dark"]   # 1+ errors = dark red
+      - [0, "dim"]        # 0 errors = dim
+    
+    # Progress thresholds (percentage)
+    progress:
+      - [100, "green"]    # 100% = green (complete)
+      - [80, "orange"]    # 80-99% = orange (nearly done)
+      - [0, "yellow"]     # 0-79% = yellow (in progress)
+
+# -----------------------------------------------------------------------------
+# Parallel Execution
+# Controls concurrent test execution across components
+# -----------------------------------------------------------------------------
+parallel:
+  enabled: false
+  # Enable parallel component execution
+  # Can be overridden with --parallel or --sequential CLI flags
+  
+  max_workers: 8
+  # Maximum number of parallel workers
+  # Use 0 to auto-detect based on CPU count
+
+# -----------------------------------------------------------------------------
+# Progress Bar Appearance
+# Customizes the visual style of progress indicators
+# -----------------------------------------------------------------------------
+progress_bar:
+  filled_char: "▰"
+  # Character for completed progress (filled blocks)
+  
+  empty_char: "▱"
+  # Character for remaining progress (empty blocks)
+  
+  filled_color: "cyan"
+  # Color for filled blocks (see status_colors for valid values)
+  
+  empty_color: "gray"
+  # Color for empty blocks
+  
+  blink_color: "cyan"
+  # Color for blinking blocks (indicates active processes)
+  
+  blink_count: "auto"
+  # Number of blocks to blink
+  # "auto": Match number of active parallel processes
+  # Or specify a fixed number (e.g., 2)
+  
+  show_brackets: true
+  # Wrap progress bar in brackets [▰▰▰▱▱]
+  
+  hide_at_100: true
+  # Replace bar with summary text when at 100% completion
+
+# -----------------------------------------------------------------------------
+# Coverage Configuration
+# Controls test coverage aggregation and report generation
+# -----------------------------------------------------------------------------
+coverage:
+  enabled: true
+  # Enable coverage collection and aggregation
+  # Can be overridden with --aggregate-coverage or --no-aggregate-coverage CLI flags
+  
+  retention_runs: -1
+  # Number of coverage runs to retain in history
+  # -1: Infinite retention
+  # N: Keep last N runs only
+  # Can be overridden with --coverage-retention CLI flag
+  
+  generate_html: true
+  # Generate HTML coverage reports (human-readable)
+  
+  generate_xml: true
+  # Generate XML coverage reports (for CI/CD integration)
+  
+  generate_json: true
+  # Generate JSON coverage reports (for tooling integration)
+  
+  cumulative: false
+  # Maintain cumulative coverage across runs (experimental)
+  # When enabled, combines coverage data from multiple runs
+
+# -----------------------------------------------------------------------------
+# Discovery Phase Configuration
+# Controls automatic dependency installation during test discovery
+# -----------------------------------------------------------------------------
+discovery:
+  auto_install_dependencies: true
+  # Automatically install missing Python dependencies during discovery
+  # Scans service requirements.txt files and installs missing packages
+  
+  skip_dev_dependencies: false
+  # Skip requirements-dev.txt files during auto-installation
+  # Set to true to only install production dependencies
+  
+  pip_install_timeout: 300
+  # Timeout for pip install operations (in seconds)
+  # Prevents hanging on problematic package installations
+
+# -----------------------------------------------------------------------------
+# Experimental Features
+# Advanced options that may change in future versions
+# -----------------------------------------------------------------------------
+experimental:
+  include_dev_tests: false
+  # Include test files not defined in component test_path
+  # Automatically discovers and categorizes tests outside configured paths
+  # Can be overridden with --include-dev or --no-include-dev CLI flags
+  
+  accurate_collection: true
+  # Use pytest --collect-only for accurate test counts
+  # More accurate but slower than file-based counting
+  # Can be overridden with --accurate or --no-accurate CLI flags
+
+# =============================================================================
+# CLI Argument Reference
+# These settings can also be controlled via command-line arguments
+# =============================================================================
+# Test Selection:
+#   --phase 1 2 3              Run specific phases
+#   --component acl,contracts  Run specific components (requires --phase)
+#
+# Execution Mode:
+#   --discover                 Run discovery only (no tests)
+#   --run-tests               Run tests with discovery
+#   --simulate                Skip tests, show last run results
+#   --parallel                Enable parallel execution (default)
+#   --sequential              Disable parallel execution
+#
+# Display Options:
+#   --collapsed [all|discover|overview|project|phases|1,2,3]
+#                             Collapse UI sections
+#   --diagnostics, -d         Show detailed diagnostics section
+#   --show-files              Show detailed test file list
+#   --show-logs               Show log paths after execution
+#   --show-all-phases         Show all phases including empty ones (default)
+#   --hide-empty-phases       Hide phases without test units
+#   --overview                Show Phase Overview with stats
+#   --from-run <id>           Show overview from specific run
+#
+# History:
+#   --history                 Show recent run history
+#   --detailed-history        Show history with phase/component breakdown
+#   --history-run <id>        Show details for specific run
+#   --history-limit N         Number of runs to show (default: 10)
+#   --history-since DATE      Show runs since date (YYYY-MM-DD, today, yesterday)
+#
+# Coverage:
+#   --aggregate-coverage      Enable coverage aggregation
+#   --no-aggregate-coverage   Disable coverage aggregation
+#   --coverage-retention N    Number of runs to retain (-1 = infinite)
+#   --coverage-temp-dir PATH  Temp directory for coverage files
+#
+# Accuracy:
+#   --accurate                Accurate test counting via pytest (default)
+#   --no-accurate            Fast file-based counting
+#
+# Development:
+#   --include-dev             Include dev tests (default)
+#   --no-include-dev          Exclude dev tests
+# =============================================================================
