@@ -1143,7 +1143,7 @@ def main():
         print()
         
         # Print project summary
-        project_name = project_config.get("project_name", "UNKNOWN")
+        project_name = getattr(project_config, 'project_name', 'UNKNOWN')
         print(f"{BOLD}Project:{RESET} {CYAN}{project_name}{RESET}")
         
         # Calculate overall metrics
