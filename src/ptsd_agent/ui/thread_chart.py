@@ -69,7 +69,8 @@ class ThreadChartRenderer:
         self.max_threads = max_threads
         self.terminal_width = terminal_width
         self.height = height
-        self.chart_width = terminal_width - 8
+        # Use more width: Y-axis takes 5 chars ("  12 ┃")
+        self.chart_width = terminal_width - 5
         
         self.timeline_data: List[DataPoint] = []
         self.start_time = time.time()
@@ -205,10 +206,15 @@ class ThreadChartRenderer:
             
             lines.append(line)
         
-        # Timeline axis
+        # Timeline axis - only draw for actual data points (not future)
+        actual_data_count = len([p for p in self.downsampled_data if p.total_threads > 0 or p.operations])
         timeline_line = f"{self.GRAY}    ┗━━{self.RESET}"
-        for _ in self.downsampled_data:
-            timeline_line += self.BASELINE_COLOR + "━" + self.RESET
+        for idx in range(len(self.downsampled_data)):
+            # Only draw solid line for points with actual data
+            if idx < actual_data_count:
+                timeline_line += self.BASELINE_COLOR + "━" + self.RESET
+            else:
+                timeline_line += " "  # Empty space for future
         timeline_line += self.GRAY + "┛" + self.RESET
         lines.append(timeline_line)
         
