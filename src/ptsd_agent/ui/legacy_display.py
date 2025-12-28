@@ -24,6 +24,19 @@ from .legacy_components import Spinner, ForwardAnimation, ProgressBar, MetricsBl
 class ProgressiveDisplay:
     """Final display implementation with precise layout and centering"""
     
+    # Minimum terminal width to prevent errors
+    MIN_TERM_WIDTH = 80
+    
+    def _handle_resize(self, old_size, new_size):
+        ""\"Handle terminal resize event.
+        
+        Args:
+            old_size: Previous terminal size (width, height)
+            new_size: New terminal size (width, height)
+        """
+        # Update terminal width
+        self.term_width = max(self.MIN_TERM_WIDTH, new_size[0])
+    
     def get_status_color(self, pct):
         """Color based on progress using theme thresholds."""
         return get_color_for_value("progress", pct)
@@ -83,8 +96,13 @@ class ProgressiveDisplay:
         self.collector = collector
         self._metrics_block = MetricsBlock()  # Single instance for all metric rendering
         
-        # Enforce a minimum width floor for calculations
-        self.term_width = max(self.MIN_TERM_WIDTH, shutil.get_terminal_size().columns)
+        # NEW: Terminal manager for resize handling
+        from .terminal import TerminalManager
+        self.terminal = TerminalManager()
+        self.terminal.on_resize(self._handle_resize)
+        
+        # Use terminal manager for width detection
+        self.term_width = max(self.MIN_TERM_WIDTH, self.terminal.get_size()[0])
         
         # UI Alignment Constants
         self.BAR_WIDTH = 20
@@ -118,7 +136,7 @@ class ProgressiveDisplay:
     
     def refresh_width(self):
         """Refresh terminal width before building lines."""
-        self.term_width = max(self.MIN_TERM_WIDTH, shutil.get_terminal_size().columns)
+        self.term_width = max(self.MIN_TERM_WIDTH, self.terminal.get_size()[0])
         
     def build_metrics_block(self, component_name=None, component_names=None):
         """Build metrics block using MetricsBlock class - delegates to components.py"""
