@@ -1073,8 +1073,9 @@ def main():
     # Ensure it uses current width logic
     display.term_width = width
     
-    # Enter alternate screen for running tests UI
-    display.terminal.enter_alternate_screen()
+    # Alternate screen disabled - causes progress bars not to show during execution
+    # TODO: Re-enable with proper buffer management
+    # display.terminal.enter_alternate_screen()
         
     # Start animation thread AFTER initial render is complete
     animation_thread = threading.Thread(target=animation_loop, daemon=True)
