@@ -28,7 +28,7 @@ class ProgressiveDisplay:
     MIN_TERM_WIDTH = 80
     
     def _handle_resize(self, old_size, new_size):
-        ""\"Handle terminal resize event.
+        """Handle terminal resize event.
         
         Args:
             old_size: Previous terminal size (width, height)
