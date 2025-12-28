@@ -261,7 +261,7 @@ class ThreadChartRenderer:
         visible_so_far = 7 + (last_idx + 1 if last_idx >= 0 else 0) + 1
         remaining = tw - visible_so_far - 1
         if remaining > 0:
-            timeline_line += f"{self.GRAY}{'━' * remaining}┛{self.RESET}"
+            timeline_line f"{self.GRAY}{'━' * remaining} +={self.RESET}"
         else:
             timeline_line += f"{self.GRAY}┛{self.RESET}"
         
