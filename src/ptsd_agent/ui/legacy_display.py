@@ -382,8 +382,18 @@ class ProgressiveDisplay:
             # Refresh width in case of resize (subtract 1 to prevent edge wrapping)
             self.term_width = max(self.MIN_TERM_WIDTH, self.terminal.get_size()[0] - 1)
             
-            # Hide cursor during render
             sys.stdout.write("\033[?25l")
+            
+            # Dynamic alternate screen: check if output fits in terminal
+            term_height = self.terminal.get_size()[1]  # Get terminal height
+            output_lines = len(self.lines)
+            
+            # If output doesn't fit and we're not in alternate screen yet, switch
+            if output_lines > term_height - 5 and not getattr(self, 'in_alternate_screen', False):
+                self.terminal.enter_alternate_screen()
+                self.in_alternate_screen = True
+                # Re-render in alternate screen
+                sys.stdout.write("\033[2J\033[H")  # Clear and home
             
             full_output = "\n".join(self.lines) + "\n"
             self.last_output = full_output  # Store for printing after alternate screen exit

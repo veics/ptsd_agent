@@ -1073,9 +1073,9 @@ def main():
     # Ensure it uses current width logic
     display.term_width = width
     
-    # Alternate screen disabled - user wants to see terminal history
-    # Original in-place rendering is better UX for this use case
-    # display.terminal.enter_alternate_screen()
+    # Dynamic alternate screen: start in-place, switch when output gets too large
+    # Track whether we've entered alternate screen
+    display.in_alternate_screen = False
         
     # Start animation thread AFTER initial render is complete
     animation_thread = threading.Thread(target=animation_loop, daemon=True)
@@ -1132,8 +1132,9 @@ def main():
         # Log results
         logger.log_snapshot(summary, collector.components)
         
-        # Alternate screen disabled - in-place rendering used instead
-        # Final state is already visible in terminal
+        # Exit alternate screen if it was entered (large UI case)
+        if use_alternate_screen:
+            display.terminal.exit_alternate_screen()
         
         # Save run history (JSON + SQLite)
         from ptsd_agent.storage.legacy_history import get_history_store
