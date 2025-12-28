@@ -155,6 +155,19 @@ class ProgressiveDisplay:
         ]
         self.forward_interval = 0.15  # 150ms per frame
         
+        # Thread chart for performance visualization
+        try:
+            from .thread_chart import ThreadChartRenderer, OperationType
+            self.thread_chart = ThreadChartRenderer(
+                max_threads=12, 
+                terminal_width=self.term_width
+            )
+            self.thread_chart_enabled = True
+            self.OperationType = OperationType
+        except ImportError:
+            self.thread_chart = None
+            self.thread_chart_enabled = False
+        
         self.lines = []
     
     def refresh_width(self):
@@ -395,7 +408,24 @@ class ProgressiveDisplay:
                 # Re-render in alternate screen
                 sys.stdout.write("\033[2J\033[H")  # Clear and home
             
-            full_output = "\n".join(self.lines) + "\n"
+            # Build final output with thread charts if enabled
+            output_parts = []
+            
+            # Add thread charts at top (if enabled and has data)
+            if self.thread_chart_enabled and self.thread_chart:
+                try:
+                    # Show real-time chart
+                    chart = self.thread_chart.render_realtime_chart()
+                    if chart:
+                        output_parts.append(chart)
+                        output_parts.append("")  # Blank line separator
+                except Exception:
+                    pass  # Silently fail if chart rendering has issues
+            
+            # Add regular display lines
+            output_parts.extend(self.lines)
+            
+            full_output = "\n".join(output_parts) + "\n"
             self.last_output = full_output  # Store for printing after alternate screen exit
             sys.stdout.write(full_output)
             sys.stdout.flush()
