@@ -109,13 +109,12 @@ def main():
                 color, op = get_operation_color(point, level)
                 
                 if level_idx == 0:
-                    # TOP LEVEL - Prominent curve CONTINUOUS!
-                    # Show for ALL points, not just peaks
-                    sparse_char = SPARSE_CHARS[i % len(SPARSE_CHARS)]
-                    if color:
-                        line += color + sparse_char + RESET
-                    elif total > 0:  # Show grey if no color but has data
-                        line += GRAY + sparse_char + RESET
+                    # PROMINENT YELLOW CURVE - tracks data closely!
+                    # Show when max data is within 3 levels
+                    max_here = max(totals[max(0, i-1):min(len(totals), i+2)]) if totals else 0
+                    if max_here > level - 3:
+                        sparse_char = SPARSE_CHARS[i % len(SPARSE_CHARS)]
+                        line += YELLOW + sparse_char + RESET  # Always YELLOW!
                     else:
                         line += " "
                 elif color:
@@ -124,12 +123,28 @@ def main():
                     if i > 0:
                         prev_color, prev_op = get_operation_color(timeline[i-1], level)
                     
-                    # CRISP EDGE - operation changed!
+                    # CREATIVE CRISP EDGES - variety of partial Braille!
                     if prev_op and prev_op != op:
-                        edge_char = EDGE_CHARS[0]  # ⣸
+                        # Choose edge char based on transition type
+                        edge_varieties = [
+                            '⣸',  # Left-heavy  (discovery→execution)
+                            '⣰',  # Top-left    (execution→ai)
+                            '⣇',  # Right-heavy (ai→fix)
+                            '⣀',  # Bottom      (fix→cache)
+                            '⢀',  # Top-right   (cache→discovery)
+                            '⡀',  # Top-left dot
+                            '⠄',  # Middle dots
+                            '⠂',  # Vertical dots
+                        ]
+                        op_list = ['discovery', 'execution', 'ai', 'fix', 'cache']
+                        try:
+                            edge_idx = (op_list.index(prev_op) * 2 + op_list.index(op)) % len(edge_varieties)
+                        except ValueError:
+                            edge_idx = 0
+                        edge_char = edge_varieties[edge_idx]
                         line += color + edge_char + RESET
                     else:
-                        # Full colored block
+                        # Full 8-dot block (⣿)
                         line += color + FULL_BLOCK + RESET
                 else:
                     line += " "
