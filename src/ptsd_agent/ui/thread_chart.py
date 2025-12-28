@@ -36,8 +36,17 @@ class ThreadChartRenderer:
     
     # Braille characters
     FULL_BLOCK = '⣿'  # Dense 8-dot block
-    EDGE_CHAR = '⣸'  # Crisp edge (partial dots)
     SPARSE_CHARS = '⠊⠑⠒⠱⠴⠳'  # For prominent curve
+    
+    # 5x5 Look-Up Table for smooth edge transitions
+    # Maps [Left_Height (0-4)][Right_Height (0-4)] to perfect Braille char
+    LUT = [
+        ['⠀', '⢀', '⢠', '⢰', '⢸'],  # 0: Empty start
+        ['⡀', '⣀', '⣠', '⣰', '⣸'],  # 1: 1/4 start
+        ['⡄', '⣄', '⣤', '⣴', '⣼'],  # 2: 1/2 start
+        ['⡆', '⣆', '⣦', '⣶', '⣾'],  # 3: 3/4 start
+        ['⡇', '⣇', '⣧', '⣷', '⣿']   # 4: Full start
+    ]
     
     # Colors
     YELLOW = '\033[38;5;180m'  # Prominent curve color
@@ -147,6 +156,33 @@ class ThreadChartRenderer:
         
         return None
     
+    def _get_lut_char(self, y1: float, y2: float, row_bottom: int, row_top: int) -> str:
+        """Get perfect Braille character using LUT for smooth edges.
+        
+        Args:
+            y1: Height of left point (in sub-dots, 0 to max_threads*4)
+            y2: Height of right point (in sub-dots, 0 to max_threads*4)
+            row_bottom: Bottom of current row in sub-dots (row * 4)
+            row_top: Top of current row in sub-dots ((row + 1) * 4)
+        
+        Returns:
+            Perfect Braille character from LUT
+        """
+        # Case A: Fully Below this row (Empty)
+        if y1 < row_bottom and y2 < row_bottom:
+            return self.LUT[0][0]  # Empty
+        
+        # Case B: Fully Above this row (Full Block)
+        if y1 >= row_top and y2 >= row_top:
+            return self.FULL_BLOCK
+        
+        # Case C: The "Edge" - line passes through this cell
+        # Map y1 and y2 to 0-4 relative to this row
+        # Clamp values to 0-4 range for LUT index
+        local_y1 = int(max(0, min(4, y1 - row_bottom)))
+        local_y2 = int(max(0, min(4, y2 - row_bottom)))
+        
+        return self.LUT[local_y1][local_y2]
     
     def render(self) -> str:
         """Render chart with finalized design: yellow curve, colored blocks, crisp edges."""
