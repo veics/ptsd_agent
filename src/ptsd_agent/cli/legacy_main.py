@@ -1047,8 +1047,8 @@ def main():
     import shutil
     # Standardize width across all UI components
     width = max(40, shutil.get_terminal_size().columns - 1)
-        
-        print() # Space before animation
+    
+    print() # Space before animation
         
         # Initialize display for in-place rendering
         display.last_line_count = 0
