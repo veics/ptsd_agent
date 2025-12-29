@@ -707,20 +707,15 @@ class ProgressiveDisplay:
                 if progress_bucket != self._last_chart_progress:
                     self._last_chart_progress = progress_bucket
                     
-                    # Get active operations count (default to 0 if no pool)
-                    ops_by_type = {}
-                    
-                    # Capture current thread state from pool (if available)
+                    # Update max_threads to match actual parallel workers
                     if hasattr(self, 'thread_pool') and self.thread_pool:
-                        # Update max_threads to match actual parallel workers
                         if hasattr(self.thread_pool, 'max_threads'):
                             self.thread_chart.set_max_threads(self.thread_pool.max_threads)
-                        
-                        # Get active operations by type
-                        with self.thread_pool.active_lock:
-                            for op in self.thread_pool.active_operations.values():
-                                op_type = op.operation_type
-                                ops_by_type[op_type] = ops_by_type.get(op_type, 0) + 1
+                    
+                    # Use active_count (passed from caller) for chart data
+                    # active_count = number of currently running components/processes
+                    from ptsd_agent.core.thread_pool import OperationType
+                    ops_by_type = {OperationType.EXECUTION: active_count} if active_count > 0 else {}
                     
                     # ALWAYS add data point on progress change (even if 0 threads)
                     # This ensures chart timeline matches progress bar
