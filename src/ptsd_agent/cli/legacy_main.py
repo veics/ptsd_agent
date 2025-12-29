@@ -708,14 +708,14 @@ def main():
     
     # Initialize thread chart
     thread_chart = ThreadChartRenderer(
-        max_threads=12,
+        max_threads=max_workers,
         terminal_width=80,
         height=5
     )
     
     # Initialize thread pool with chart
     thread_pool = ThreadPoolCoordinator(
-        max_threads=12,
+        max_threads=max_workers,
         thread_chart=thread_chart,
         config=project_config.__dict__ if hasattr(project_config, '__dict__') else {}
     )
