@@ -103,7 +103,7 @@ class ProjectConfig:
             'width': chart.get('width', '100%'),
             'enabled': chart.get('enabled', True),
             'colors': {
-                'axis': colors.get('axis', 130),
+                'axis': colors.get('axis', 94),
                 'empty': colors.get('empty', 236),
                 'blink': colors.get('blink', 214),
                 'blink_chars': colors.get('blink_chars', 2)

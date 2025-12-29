@@ -87,7 +87,7 @@ class ThreadChartRenderer:
         
         # Configurable colors (with defaults)
         colors = colors or {}
-        axis_code = colors.get('axis', 130)
+        axis_code = colors.get('axis', 94)
         empty_code = colors.get('empty', 236)
         blink_code = colors.get('blink', 214)
         self.blink_chars = colors.get('blink_chars', 2)
