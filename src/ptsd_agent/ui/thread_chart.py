@@ -281,6 +281,11 @@ class ThreadChartRenderer:
         pos = filled_len
         if pos < 2:
             pos = 2
+        # Cap position to leave space for green line indicator on the right
+        # Leave at least 15% of chart width empty on the right
+        max_pos = int(self.chart_width * 0.85) - len(t_str)
+        if pos > max_pos:
+            pos = max_pos
         
         for k, ch in enumerate(t_str):
             if pos + k < self.chart_width:
