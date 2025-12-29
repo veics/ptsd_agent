@@ -40,6 +40,7 @@ class TestExecutor:
         self.thread_pool = thread_pool  # NEW: Thread pool for operations
         self.parallel_workers = parallel_workers  # NEW: Test-level parallelism (pytest-xdist -n)
         import tempfile
+        import threading
         self.coverage_temp_dir = coverage_temp_dir or tempfile.gettempdir()
         self.coverage_storage_dir = coverage_storage_dir
         self.run_id = run_id
@@ -47,6 +48,15 @@ class TestExecutor:
         self._coverage_files: Dict[str, str] = {}  # Track coverage files per component
         self._discovery_cache: Dict[str, Dict] = {}  # NEW: Cache discovery results (Phase 2)
         self._fast_counter = FastTestCounter()  # NEW: Fast test counting (Phase 2)
+        
+        # Thread-safe counter for concurrent subprocess tracking (for chart display)
+        self._concurrent_subprocesses = 0
+        self._subprocess_lock = threading.Lock()
+    
+    def get_concurrent_count(self) -> int:
+        """Get current number of concurrent pytest subprocesses (thread-safe)."""
+        with self._subprocess_lock:
+            return self._concurrent_subprocesses
     
     def get_error_buffer(self) -> List[str]:
         """Get captured error output from the last test run."""
@@ -193,22 +203,30 @@ class TestExecutor:
         # Discover test files (not individual tests)
         test_files = self._discover_test_files(test_path)
         
-
         if not test_files:
             logger.warning(f"[{component_name}] No test files found in {test_path}")
             return
         
         logger.debug(f"[{component_name}] Found {len(test_files)} test files, running with {self.parallel_workers} workers")
         
+        def run_with_tracking(test_file):
+            """Wrapper that increments/decrements subprocess counter."""
+            # Increment counter
+            with self._subprocess_lock:
+                self._concurrent_subprocesses += 1
+            
+            try:
+                return self._run_pytest(component_name, test_file, pythonpath, callback=callback)
+            finally:
+                # Decrement counter (always, even on exception)
+                with self._subprocess_lock:
+                    self._concurrent_subprocesses -= 1
+        
         # Run test files in parallel
         with ThreadPoolExecutor(max_workers=self.parallel_workers) as executor:
             futures = {}
             for test_file in test_files:
-                future = executor.submit(
-                    self._run_pytest,
-                    component_name, test_file, pythonpath,
-                    callback=callback
-                )
+                future = executor.submit(run_with_tracking, test_file)
                 futures[future] = test_file
             
             # Wait for all to complete

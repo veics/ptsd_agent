@@ -1055,8 +1055,11 @@ def main():
                 for c_name, c_state in state["phases"][p_id]["components"].items()
                 if c_state.get("status") == "running"
             )
-            # Use at least 1 if any component is running, otherwise use the count
-            active_count = max(1, running_count)
+            
+            # Use concurrent subprocess count for chart (file-level parallelism)
+            # This shows actual number of pytest processes running in parallel
+            concurrent_count = executor.get_concurrent_count()
+            active_count = max(1, concurrent_count) if concurrent_count > 0 else max(1, running_count)
             
             if state["mode"] == "completed":
                 display.build_bottom_bar(progress_pct=100, mode="completed", active_count=0)
