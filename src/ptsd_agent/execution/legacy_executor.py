@@ -161,8 +161,10 @@ class TestExecutor:
                 return 0
             self.collector.set_discovered_total(component_name, len(tests))
         
-        # Run pytest - route through thread pool if available
-        if self.thread_pool:
+        # File-level parallelism: run N test files in N parallel subprocesses
+        if self.parallel_workers > 1:
+            self._run_parallel_files(component_name, test_path, pythonpath, callback=callback)
+        elif self.thread_pool:
             # Submit via thread pool for proper tracking and chart updates
             future = self.thread_pool.submit(
                 OperationType.EXECUTION,
@@ -178,6 +180,55 @@ class TestExecutor:
         else:
             # Fallback: direct execution
             self._run_pytest(component_name, test_path, pythonpath, callback=callback)
+    
+    def _run_parallel_files(self, component_name: str, test_path: str, pythonpath: str = None, callback=None):
+        """Run test files in parallel using ThreadPoolExecutor.
+        
+        Discovers test files and runs up to parallel_workers pytest processes concurrently.
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        # Discover test files (not individual tests)
+        test_files = self._discover_test_files(test_path)
+        if not test_files:
+            logger.warning(f"[{component_name}] No test files found in {test_path}")
+            return
+        
+        logger.debug(f"[{component_name}] Found {len(test_files)} test files, running with {self.parallel_workers} workers")
+        
+        # Run test files in parallel
+        with ThreadPoolExecutor(max_workers=self.parallel_workers) as executor:
+            futures = {}
+            for test_file in test_files:
+                future = executor.submit(
+                    self._run_pytest,
+                    component_name, test_file, pythonpath,
+                    callback=callback
+                )
+                futures[future] = test_file
+            
+            # Wait for all to complete
+            for future in as_completed(futures):
+                test_file = futures[future]
+                try:
+                    exit_code = future.result()
+                    logger.debug(f"[{component_name}] {test_file} completed with exit code {exit_code}")
+                except Exception as e:
+                    logger.error(f"[{component_name}] {test_file} failed: {e}")
+    
+    def _discover_test_files(self, test_path: str) -> List[str]:
+        """Discover all test files in a directory."""
+        test_files = []
+        test_path_obj = Path(test_path)
+        
+        if test_path_obj.is_file():
+            return [str(test_path_obj)]
+        
+        # Find all test_*.py and *_test.py files
+        for pattern in ["test_*.py", "*_test.py"]:
+            test_files.extend(str(f) for f in test_path_obj.rglob(pattern))
+        
+        return sorted(set(test_files))
 
     
     def _discover_tests(self, test_path: str, pythonpath: str = None) -> tuple:
@@ -270,10 +321,6 @@ class TestExecutor:
             cmd = [python_exe, "-m", "pytest", "-v", "-ra", "--continue-on-collection-errors"]
         else:
             cmd = [pytest_cmd, "-v", "-ra", "--continue-on-collection-errors"]
-        
-        # Add pytest-xdist parallel flag if parallel_workers > 1
-        if self.parallel_workers > 1:
-            cmd.extend(["-n", str(self.parallel_workers)])
         
         # Add coverage for the service if we have a pythonpath or service dir
         # Coverage percentage is parsed from terminal output and stored in memory (MetricsCollector)
