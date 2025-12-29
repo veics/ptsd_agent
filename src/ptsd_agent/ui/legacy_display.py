@@ -692,21 +692,32 @@ class ProgressiveDisplay:
         """Full-width progress bar with blinking blocks for active processes."""
         w = self.term_width
         
+        # Track last progress to avoid duplicate data points
+        if not hasattr(self, '_last_chart_progress'):
+            self._last_chart_progress = -1
+        
         # Render thread chart RIGHT ABOVE bottom bar
         if self.thread_chart_enabled and self.thread_chart:
             try:
-                # Capture current thread state from pool (if available)
-                if hasattr(self, 'thread_pool') and self.thread_pool:
-                    # Get active operations by type
-                    ops_by_type = {}
-                    with self.thread_pool.active_lock:
-                        for op in self.thread_pool.active_operations.values():
-                            op_type = op.operation_type
-                            ops_by_type[op_type] = ops_by_type.get(op_type, 0) + 1
+                # Only sample thread state when progress actually changes (not every frame!)
+                # This ensures chart advances with execution, not with display refresh rate
+                progress_bucket = int(progress_pct * 10)  # 0-100% -> 0-1000 buckets
+                
+                if progress_bucket != self._last_chart_progress:
+                    self._last_chart_progress = progress_bucket
                     
-                    # Only add if we have real data
-                    if ops_by_type:
-                        self.thread_chart.add_data_point(ops_by_type)
+                    # Capture current thread state from pool (if available)
+                    if hasattr(self, 'thread_pool') and self.thread_pool:
+                        # Get active operations by type
+                        ops_by_type = {}
+                        with self.thread_pool.active_lock:
+                            for op in self.thread_pool.active_operations.values():
+                                op_type = op.operation_type
+                                ops_by_type[op_type] = ops_by_type.get(op_type, 0) + 1
+                        
+                        # Only add if we have real data
+                        if ops_by_type:
+                            self.thread_chart.add_data_point(ops_by_type)
                 
                 # Render the chart
                 chart_output = self.thread_chart.render()
