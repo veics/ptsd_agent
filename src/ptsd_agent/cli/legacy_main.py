@@ -729,13 +729,18 @@ def main():
             # Fixed width
             chart_width = int(args.chart_width)
     
+    # Get chart colors from config
+    chart_config = project_config.get_chart_config() if hasattr(project_config, 'get_chart_config') else {}
+    chart_colors = chart_config.get('colors', {})
+    
     # Initialize thread chart (unless disabled)
     thread_chart = None
     if not getattr(args, 'no_chart', False):
         thread_chart = ThreadChartRenderer(
             max_threads=max_workers,
             terminal_width=chart_width,
-            height=chart_height
+            height=chart_height,
+            colors=chart_colors
         )
     
     # Initialize thread pool with chart

@@ -87,15 +87,27 @@ class ProjectConfig:
             height: Number of rows (default: 6)
             width: Fixed columns or percentage string like '100%' (default: '100%')
             enabled: Whether chart is enabled (default: True)
+            colors:
+                axis: ANSI color code for Y/X axis (default: 172 - dimmed orange)
+                empty: ANSI color code for unprogressed bar (default: 236 - grey)
+                blink: ANSI color code for blinking progress edge (default: 214 - orange)
+                blink_chars: Number of chars to blink (default: 2)
         
         Returns:
             Dict with chart configuration
         """
         chart = self._config.get('chart', {})
+        colors = chart.get('colors', {})
         return {
             'height': chart.get('height', 6),
             'width': chart.get('width', '100%'),
-            'enabled': chart.get('enabled', True)
+            'enabled': chart.get('enabled', True),
+            'colors': {
+                'axis': colors.get('axis', 172),
+                'empty': colors.get('empty', 236),
+                'blink': colors.get('blink', 214),
+                'blink_chars': colors.get('blink_chars', 2)
+            }
         }
     
     def get_phase_config(self, phase_id: int) -> Optional[Dict[str, Any]]:

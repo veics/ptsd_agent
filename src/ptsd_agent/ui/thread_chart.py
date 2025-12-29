@@ -51,12 +51,10 @@ CHAR_FILL = '⣿'
 class ThreadChartRenderer:
     """Perfect chart from matrix_chart_demo_9!"""
     
-    # Colors
+    # Default colors (can be overridden via config)
     C_ORANGE = '\033[38;5;214m'
     C_GREEN = '\033[38;5;46m'
     C_LABEL = '\033[38;5;250m'
-    C_CYAN = '\033[38;5;172m'  # Dimmed orange for axes
-    C_GREY = '\033[38;5;236m'
     C_RESET = '\033[0m'
     
     # Operation colors
@@ -68,8 +66,15 @@ class ThreadChartRenderer:
         OperationType.CACHE: '\033[38;5;109m',
     }
     
-    def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 6):
-        """Initialize."""
+    def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 6, colors: dict = None):
+        """Initialize.
+        
+        Args:
+            max_threads: Max threads for Y-axis scale
+            terminal_width: Chart width in columns
+            height: Number of rows
+            colors: Optional dict with 'axis', 'empty', 'blink', 'blink_chars' keys
+        """
         if terminal_width is None:
             import shutil
             terminal_width = shutil.get_terminal_size().columns
@@ -79,6 +84,17 @@ class ThreadChartRenderer:
         self.height = height
         # Y-axis is: 4-char label + space + ┃ + space = 7 chars
         self.chart_width = terminal_width - 7
+        
+        # Configurable colors (with defaults)
+        colors = colors or {}
+        axis_code = colors.get('axis', 172)
+        empty_code = colors.get('empty', 236)
+        blink_code = colors.get('blink', 214)
+        self.blink_chars = colors.get('blink_chars', 2)
+        
+        self.C_AXIS = f'\033[38;5;{axis_code}m'
+        self.C_EMPTY = f'\033[38;5;{empty_code}m'
+        self.C_BLINK = f'\033[38;5;{blink_code}m'
         
         self.timeline_data: List[DataPoint] = []
         self.start_time = time.time()
@@ -151,9 +167,9 @@ class ThreadChartRenderer:
             
             # Y-axis with cyan separator
             if r < len(y_labels):
-                line_buffer += f"{self.C_LABEL}{y_labels[r]} {self.C_CYAN}┃ {self.C_RESET}"
+                line_buffer += f"{self.C_LABEL}{y_labels[r]} {self.C_AXIS}┃ {self.C_RESET}"
             else:
-                line_buffer += f"     {self.C_CYAN}┃ {self.C_RESET}"
+                line_buffer += f"     {self.C_AXIS}┃ {self.C_RESET}"
             
             row_bottom = r * 4
             row_top = (r + 1) * 4
@@ -243,10 +259,10 @@ class ThreadChartRenderer:
                 filled_len = self.chart_width - 1
             remaining_len = self.chart_width - filled_len - gap_len
         
-        bar_filled = f"{self.C_CYAN}" + ("━" * filled_len)
+        bar_filled = f"{self.C_AXIS}" + ("━" * filled_len)
         bar_gap = " " * gap_len
-        bar_empty = f"{self.C_GREY}" + ("━" * remaining_len)
-        corner = f"   0 {self.C_CYAN}┗━"
+        bar_empty = f"{self.C_EMPTY}" + ("━" * remaining_len)
+        corner = f"   0 {self.C_AXIS}┗━"
         
         axis_line = f"{corner}{bar_filled}{bar_gap}{bar_empty}{self.C_RESET}"
         output.append(axis_line)
