@@ -34,9 +34,11 @@ class TestExecutor:
     """Executes tests and streams real-time metrics to the collector"""
     
     def __init__(self, collector: MetricsCollector, coverage_temp_dir: str = None, 
-                 coverage_storage_dir: str = None, run_id: str = None, thread_pool=None):
+                 coverage_storage_dir: str = None, run_id: str = None, thread_pool=None,
+                 parallel_workers: int = 1):
         self.collector = collector
         self.thread_pool = thread_pool  # NEW: Thread pool for operations
+        self.parallel_workers = parallel_workers  # NEW: Test-level parallelism (pytest-xdist -n)
         import tempfile
         self.coverage_temp_dir = coverage_temp_dir or tempfile.gettempdir()
         self.coverage_storage_dir = coverage_storage_dir
@@ -268,6 +270,10 @@ class TestExecutor:
             cmd = [python_exe, "-m", "pytest", "-v", "-ra", "--continue-on-collection-errors"]
         else:
             cmd = [pytest_cmd, "-v", "-ra", "--continue-on-collection-errors"]
+        
+        # Add pytest-xdist parallel flag if parallel_workers > 1
+        if self.parallel_workers > 1:
+            cmd.extend(["-n", str(self.parallel_workers)])
         
         # Add coverage for the service if we have a pythonpath or service dir
         # Coverage percentage is parsed from terminal output and stored in memory (MetricsCollector)

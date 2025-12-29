@@ -769,13 +769,15 @@ def main():
             coverage_temp_dir=args.coverage_temp_dir,
             coverage_storage_dir=coverage_storage_dir,
             run_id=run_id,
-            thread_pool=thread_pool
+            thread_pool=thread_pool,
+            parallel_workers=max_workers  # Enable test-level parallelism via pytest-xdist
         )
     else:
         executor = TestExecutor(
             collector, 
             coverage_temp_dir=args.coverage_temp_dir,
-            thread_pool=thread_pool
+            thread_pool=thread_pool,
+            parallel_workers=max_workers  # Enable test-level parallelism via pytest-xdist
         )
     
     render_lock = threading.Lock()
