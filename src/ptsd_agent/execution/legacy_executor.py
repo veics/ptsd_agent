@@ -440,8 +440,13 @@ class TestExecutor:
             logger.debug(f"[{component_name}] Total output lines: {len(output_lines)}")
             
             # DIAGNOSTIC: Check if tests were parsed
+            # Skip this warning in parallel file mode (each file only runs a subset)
+            # Also skip on SIGINT (exit code -2) as process was interrupted
             comp = self.collector.get_component(component_name)
-            if comp.discovered_total > 0 and tests_parsed == 0:
+            is_single_file = test_path.endswith('.py')  # Running single test file in parallel mode
+            is_interrupted = exit_code == -2 or exit_code == 130  # SIGINT
+            
+            if comp.discovered_total > 0 and tests_parsed == 0 and not is_single_file and not is_interrupted:
                 logger.warning(f"[{component_name}] No tests were parsed despite {comp.discovered_total} discovered!")
                 logger.warning(f"[{component_name}] Exit code: {exit_code}")
                 logger.warning(f"[{component_name}] Command: {' '.join(cmd)}")
