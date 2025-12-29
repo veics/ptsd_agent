@@ -82,6 +82,11 @@ class ThreadChartRenderer:
         
         self.timeline_data: List[DataPoint] = []
         self.start_time = time.time()
+        self._pending_max_threads = None
+    
+    def set_max_threads(self, max_threads: int):
+        """Update max_threads for Y-axis scaling (call when parallel count is known)."""
+        self._pending_max_threads = max_threads
     
     def add_data_point(self, operations: Dict[OperationType, int]):
         """Add data point."""
@@ -104,12 +109,20 @@ class ThreadChartRenderer:
             self.terminal_width = terminal_width
             self.chart_width = terminal_width - 7  # Y-axis is 7 chars
         
+        # Update max_threads if provided
+        if hasattr(self, '_pending_max_threads') and self._pending_max_threads:
+            self.max_threads = self._pending_max_threads
+            self._pending_max_threads = None
+        
         output = []
         
-        # Y-axis labels based on max_threads (linear scale, not power of 2)
-        # Create 6 labels evenly distributed from max_threads down to 0
-        step = self.max_threads / 5  # 5 intervals = 6 labels
-        y_labels = [f"{int(self.max_threads - i * step):>4}" for i in range(self.height)]
+        # Y-axis labels based on max_threads (linear scale)
+        # Row 0 = bottom (value 0), Row height-1 = top (value max_threads)
+        # When rendering, we go from r=height-1 down to r=0, using y_labels[r]
+        step = self.max_threads / (self.height - 1) if self.height > 1 else self.max_threads
+        # Index by row: y_labels[r] = value that row represents
+        y_labels = [f"{int(r * step):>4}" for r in range(self.height)]
+        # So y_labels[0]=0, y_labels[height-1]=max_threads
         
         # Extract values
         values = [p.total_threads for p in self.timeline_data]

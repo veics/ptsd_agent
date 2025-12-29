@@ -709,6 +709,10 @@ class ProgressiveDisplay:
                     
                     # Capture current thread state from pool (if available)
                     if hasattr(self, 'thread_pool') and self.thread_pool:
+                        # Update max_threads to match actual parallel workers
+                        if hasattr(self.thread_pool, 'max_workers'):
+                            self.thread_chart.set_max_threads(self.thread_pool.max_workers)
+                        
                         # Get active operations by type
                         ops_by_type = {}
                         with self.thread_pool.active_lock:
