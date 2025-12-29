@@ -707,6 +707,9 @@ class ProgressiveDisplay:
                 if progress_bucket != self._last_chart_progress:
                     self._last_chart_progress = progress_bucket
                     
+                    # Get active operations count (default to 0 if no pool)
+                    ops_by_type = {}
+                    
                     # Capture current thread state from pool (if available)
                     if hasattr(self, 'thread_pool') and self.thread_pool:
                         # Update max_threads to match actual parallel workers
@@ -714,15 +717,14 @@ class ProgressiveDisplay:
                             self.thread_chart.set_max_threads(self.thread_pool.max_workers)
                         
                         # Get active operations by type
-                        ops_by_type = {}
                         with self.thread_pool.active_lock:
                             for op in self.thread_pool.active_operations.values():
                                 op_type = op.operation_type
                                 ops_by_type[op_type] = ops_by_type.get(op_type, 0) + 1
-                        
-                        # Only add if we have real data
-                        if ops_by_type:
-                            self.thread_chart.add_data_point(ops_by_type)
+                    
+                    # ALWAYS add data point on progress change (even if 0 threads)
+                    # This ensures chart timeline matches progress bar
+                    self.thread_chart.add_data_point(ops_by_type)
                 
                 # Render the chart with CURRENT terminal width
                 chart_output = self.thread_chart.render(terminal_width=self.term_width)

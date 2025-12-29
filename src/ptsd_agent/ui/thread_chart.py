@@ -109,8 +109,8 @@ class ThreadChartRenderer:
             self.terminal_width = terminal_width
             self.chart_width = terminal_width - 7  # Y-axis is 7 chars
         
-        # Update max_threads if provided
-        if hasattr(self, '_pending_max_threads') and self._pending_max_threads:
+        # Update max_threads if set
+        if self._pending_max_threads is not None:
             self.max_threads = self._pending_max_threads
             self._pending_max_threads = None
         
