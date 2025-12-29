@@ -704,17 +704,9 @@ class ProgressiveDisplay:
                             op_type = op.operation_type
                             ops_by_type[op_type] = ops_by_type.get(op_type, 0) + 1
                     
-                    # FALLBACK: If no real data, inject test data to make chart visible
-                    if not ops_by_type:
-                        from ptsd_agent.ui.thread_chart import OperationType
-                        import random
-                        ops_by_type = {
-                            OperationType.EXECUTION: random.randint(3, 8),
-                            OperationType.DISCOVERY: random.randint(1, 3),
-                        }
-                    
-                    # Add current state to chart
-                    self.thread_chart.add_data_point(ops_by_type)
+                    # Only add if we have real data
+                    if ops_by_type:
+                        self.thread_chart.add_data_point(ops_by_type)
                 
                 # Render the chart
                 chart_output = self.thread_chart.render()
