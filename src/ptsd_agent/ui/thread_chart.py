@@ -106,16 +106,17 @@ class ThreadChartRenderer:
         
         output = []
         
-        # Y-axis labels
-        y_labels = [f" {2**i:>3}" for i in range(7, 1, -1)]
+        # Y-axis labels based on max_threads (linear scale, not power of 2)
+        # Create 6 labels evenly distributed from max_threads down to 0
+        step = self.max_threads / 5  # 5 intervals = 6 labels
+        y_labels = [f"{int(self.max_threads - i * step):>4}" for i in range(self.height)]
         
         # Extract values
         values = [p.total_threads for p in self.timeline_data]
         visible_idx = len(values)
         
-        # Scale
-        max_val = max(values) if values else 1
-        scale_y = (self.height * 4) / (max_val + 3)
+        # Scale based on max_threads (not max observed value)
+        scale_y = (self.height * 4) / (self.max_threads + 1)
         norm_data = [(v * scale_y) for v in values]
         
         # GREEN OVERLAY: Smooth the data for the green chain
