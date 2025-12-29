@@ -140,6 +140,7 @@ class TestExecutor:
             simulation: Whether to run in simulation mode
             callback: Optional callback function(test_name) called when each test starts
         """
+
         if simulation:
             return self._simulate_run(phase_id, component_name)
         
@@ -161,6 +162,7 @@ class TestExecutor:
                 return 0
             self.collector.set_discovered_total(component_name, len(tests))
         
+
         # File-level parallelism: run N test files in N parallel subprocesses
         if self.parallel_workers > 1:
             self._run_parallel_files(component_name, test_path, pythonpath, callback=callback)
@@ -190,6 +192,8 @@ class TestExecutor:
         
         # Discover test files (not individual tests)
         test_files = self._discover_test_files(test_path)
+        
+
         if not test_files:
             logger.warning(f"[{component_name}] No test files found in {test_path}")
             return
