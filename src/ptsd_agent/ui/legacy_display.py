@@ -163,12 +163,10 @@ class ProgressiveDisplay:
             if hasattr(self, 'thread_pool') and self.thread_pool and hasattr(self.thread_pool, 'max_workers'):
                 max_workers = self.thread_pool.max_workers
             
-            # Use FULL terminal width for chart (bypass MIN_TERM_WIDTH clamping)
-            actual_width = shutil.get_terminal_size().columns
-            
+            # Use SAME width as bottom bar (self.term_width)
             self.thread_chart = ThreadChartRenderer(
                 max_threads=max_workers, 
-                terminal_width=actual_width  # Full width!
+                terminal_width=self.term_width  # Same width as bottom bar!
             )
             self.thread_chart_enabled = True
             self.OperationType = OperationType
