@@ -134,22 +134,27 @@ class ThreadChartRenderer:
             self.max_threads = self._pending_max_threads
             self._pending_max_threads = None
         
+        # DYNAMIC SCALING: Calculate actual max from data
+        # Use max of (max_threads setting, actual data max) so chart scales up as needed
+        actual_max = max(p.total_threads for p in self.timeline_data)
+        effective_max = max(self.max_threads, actual_max, 1)  # At least 1
+        
         output = []
         
-        # Y-axis labels based on max_threads (linear scale)
-        # Row 0 = bottom (value 0), Row height-1 = top (value max_threads)
+        # Y-axis labels based on effective_max (linear scale)
+        # Row 0 = bottom (value 0), Row height-1 = top (value effective_max)
         # When rendering, we go from r=height-1 down to r=0, using y_labels[r]
-        step = self.max_threads / (self.height - 1) if self.height > 1 else self.max_threads
+        step = effective_max / (self.height - 1) if self.height > 1 else effective_max
         # Index by row: y_labels[r] = value that row represents
         y_labels = [f"{int(r * step):>4}" for r in range(self.height)]
-        # So y_labels[0]=0, y_labels[height-1]=max_threads
+        # So y_labels[0]=0, y_labels[height-1]=effective_max
         
         # Extract values
         values = [p.total_threads for p in self.timeline_data]
         visible_idx = len(values)
         
-        # Scale based on max_threads (not max observed value)
-        scale_y = (self.height * 4) / (self.max_threads + 1)
+        # Scale based on effective_max (dynamic scaling)
+        scale_y = (self.height * 4) / (effective_max + 1)
         norm_data = [(v * scale_y) for v in values]
         
         # GREEN OVERLAY: Smooth the data for the green chain
@@ -158,8 +163,8 @@ class ThreadChartRenderer:
             start = max(0, i-2)
             end = min(len(values), i+2)
             avg = sum(values[start:end]) / (end - start)
-            # Offset slightly above
-            green_data.append((avg + 3) * scale_y)
+            # Offset slightly above for visibility
+            green_data.append((avg + 2) * scale_y)
         
         # Render rows
         for r in range(self.height - 1, -1, -1):
