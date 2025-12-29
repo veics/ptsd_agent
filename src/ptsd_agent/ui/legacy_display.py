@@ -720,20 +720,12 @@ class ProgressiveDisplay:
                         if ops_by_type:
                             self.thread_chart.add_data_point(ops_by_type)
                 
-                # Render the chart
-                chart_output = self.thread_chart.render()
+                # Render the chart with CURRENT terminal width
+                chart_output = self.thread_chart.render(terminal_width=self.term_width)
                 if chart_output:
                     self.add_line(chart_output)
-                else:
-                    # DEBUG: Why no output?
-                    import sys
-                    print(f"[CHART DEBUG] render() returned empty! timeline={len(self.thread_chart.timeline_data)}", file=sys.stderr, flush=True)
-            except Exception as e:
-                # DEBUG: Expose exceptions!
-                import sys
-                print(f"[CHART ERROR] {e}", file=sys.stderr, flush=True)
-                import traceback
-                traceback.print_exc(file=sys.stderr)
+            except Exception:
+                pass  # Silently ignore chart errors
         
         # Use BottomBar component for blinking support
         bar = self._bottom_bar.render(

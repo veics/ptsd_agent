@@ -90,10 +90,19 @@ class ThreadChartRenderer:
             operations=operations
         ))
     
-    def render(self) -> str:
-        """Render using demo 9 logic!"""
+    def render(self, terminal_width: int = None) -> str:
+        """Render using demo 9 logic!
+        
+        Args:
+            terminal_width: Override terminal width (for dynamic resizing)
+        """
         if not self.timeline_data:
             return ""
+        
+        # Update chart_width dynamically if terminal_width provided
+        if terminal_width is not None:
+            self.terminal_width = terminal_width
+            self.chart_width = terminal_width - 7  # Y-axis is 7 chars
         
         output = []
         
