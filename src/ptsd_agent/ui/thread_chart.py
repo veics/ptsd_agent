@@ -108,11 +108,20 @@ class ThreadChartRenderer:
         scale_y = (self.height * 4) / (max_val + 3)
         norm_data = [(v * scale_y) for v in values]
         
+        # GREEN OVERLAY: Smooth the data for the green chain
+        green_data = []
+        for i in range(len(values)):
+            start = max(0, i-2)
+            end = min(len(values), i+2)
+            avg = sum(values[start:end]) / (end - start)
+            # Offset slightly above
+            green_data.append((avg + 3) * scale_y)
+        
         # Render rows
         for r in range(self.height - 1, -1, -1):
             line_buffer = ""
             
-            # Y-axis
+            # Y-axis with cyan separator
             if r < len(y_labels):
                 line_buffer += f"{self.C_LABEL}{y_labels[r]} {self.C_CYAN}┃ {self.C_RESET}"
             else:
@@ -127,6 +136,7 @@ class ThreadChartRenderer:
                 char_final = " "
                 color_final = self.C_RESET
                 
+                # LAYER 1: Base chart
                 if y1 >= row_top and y2 >= row_top:
                     # Full block
                     point = self.timeline_data[i]
@@ -139,11 +149,24 @@ class ThreadChartRenderer:
                     char_final = " "
                 
                 else:
-                    # EDGE - LUT
+                    # EDGE - smooth LUT!
                     ly1 = int(max(0, min(4, y1 - row_bottom)))
                     ly2 = int(max(0, min(4, y2 - row_bottom)))
                     char_final = LUT_SMOOTH[ly1][ly2]
                     color_final = self.C_ORANGE
+                
+                # LAYER 2: Green chain overlay (from demo!)
+                if i < len(green_data) - 1:
+                    g_y1, g_y2 = green_data[i], green_data[i+1]
+                    seg_min, seg_max = min(g_y1, g_y2), max(g_y1, g_y2)
+                    
+                    if seg_max > row_bottom and seg_min < row_top:
+                        gy1_loc = int(max(0, min(4, g_y1 - row_bottom)))
+                        gy2_loc = int(max(0, min(4, g_y2 - row_bottom)))
+                        chain_char = LUT_CHAIN[gy1_loc][gy2_loc]
+                        if chain_char != '⠀':
+                            char_final = chain_char
+                            color_final = self.C_GREEN
                 
                 line_buffer += f"{color_final}{char_final}"
             
