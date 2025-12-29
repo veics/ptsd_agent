@@ -726,8 +726,11 @@ class ProgressiveDisplay:
                     # This ensures chart timeline matches progress bar
                     self.thread_chart.add_data_point(ops_by_type)
                 
-                # Render the chart with CURRENT terminal width
-                chart_output = self.thread_chart.render(terminal_width=self.term_width)
+                # Render the chart with CURRENT terminal width AND progress
+                chart_output = self.thread_chart.render(
+                    terminal_width=self.term_width,
+                    progress_pct=progress_pct
+                )
                 if chart_output:
                     self.add_line(chart_output)
             except Exception:

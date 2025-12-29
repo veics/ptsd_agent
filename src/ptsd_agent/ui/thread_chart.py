@@ -95,14 +95,18 @@ class ThreadChartRenderer:
             operations=operations
         ))
     
-    def render(self, terminal_width: int = None) -> str:
+    def render(self, terminal_width: int = None, progress_pct: float = None) -> str:
         """Render using demo 9 logic!
         
         Args:
             terminal_width: Override terminal width (for dynamic resizing)
+            progress_pct: Current progress percentage (0-100) for timeline sync
         """
         if not self.timeline_data:
             return ""
+        
+        # Store progress for timeline calculation
+        self._progress_pct = progress_pct
         
         # Update chart_width dynamically if terminal_width provided
         if terminal_width is not None:
@@ -154,14 +158,32 @@ class ThreadChartRenderer:
             row_bottom = r * 4
             row_top = (r + 1) * 4
             
-            # Render FULL chart width (not just data points!)
+            # Calculate how many columns to fill based on progress
+            if self._progress_pct is not None:
+                filled_columns = int((self._progress_pct / 100.0) * self.chart_width)
+            else:
+                filled_columns = len(norm_data)
+            filled_columns = min(filled_columns, self.chart_width)
+            
+            # Render FULL chart width
             for i in range(self.chart_width):
-                # After data ends, render empty space
-                if i >= len(norm_data) - 1:
+                # After filled area, render empty space
+                if i >= filled_columns:
                     line_buffer += " "
                     continue
-                    
-                y1, y2 = norm_data[i], norm_data[i+1]
+                
+                # Map chart position to data index (stretch data to fill progress area)
+                if len(norm_data) > 1 and filled_columns > 1:
+                    data_idx = int(i * (len(norm_data) - 1) / (filled_columns - 1))
+                    data_idx = min(data_idx, len(norm_data) - 2)
+                else:
+                    data_idx = 0
+                
+                if data_idx >= len(norm_data) - 1:
+                    line_buffer += " "
+                    continue
+                
+                y1, y2 = norm_data[data_idx], norm_data[data_idx + 1]
                 
                 char_final = " "
                 color_final = self.C_RESET
@@ -169,7 +191,7 @@ class ThreadChartRenderer:
                 # LAYER 1: Base chart
                 if y1 >= row_top and y2 >= row_top:
                     # Full block
-                    point = self.timeline_data[i]
+                    point = self.timeline_data[min(data_idx, len(self.timeline_data) - 1)]
                     if point.operations:
                         op = max(point.operations.items(), key=lambda x: x[1])[0]
                         color_final = self.OP_COLORS_MAP.get(op, self.C_RESET)
@@ -186,8 +208,8 @@ class ThreadChartRenderer:
                     color_final = self.C_ORANGE
                 
                 # LAYER 2: Green chain overlay (from demo!)
-                if i < len(green_data) - 1:
-                    g_y1, g_y2 = green_data[i], green_data[i+1]
+                if data_idx < len(green_data) - 1:
+                    g_y1, g_y2 = green_data[data_idx], green_data[data_idx + 1]
                     seg_min, seg_max = min(g_y1, g_y2), max(g_y1, g_y2)
                     
                     if seg_max > row_bottom and seg_min < row_top:
@@ -202,8 +224,15 @@ class ThreadChartRenderer:
             
             output.append(line_buffer + self.C_RESET)
         
-        # Timeline
-        filled_len = visible_idx
+        # Timeline - sync with progress bar using progress_pct
+        # If progress_pct provided, use it; otherwise fall back to data point ratio
+        if self._progress_pct is not None:
+            # Timeline fills proportionally to progress percentage
+            filled_len = int((self._progress_pct / 100.0) * self.chart_width)
+        else:
+            # Fallback: use data points ratio
+            filled_len = visible_idx
+        
         if filled_len >= self.chart_width:
             filled_len = self.chart_width
             gap_len = 0
