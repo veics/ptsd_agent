@@ -55,7 +55,7 @@ class ThreadChartRenderer:
     C_ORANGE = '\033[38;5;214m'
     C_GREEN = '\033[38;5;46m'
     C_LABEL = '\033[38;5;250m'
-    C_CYAN = '\033[38;5;81m'
+    C_CYAN = '\033[38;5;116m'  # Washed cyan
     C_GREY = '\033[38;5;236m'
     C_RESET = '\033[0m'
     
