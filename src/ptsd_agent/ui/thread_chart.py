@@ -130,7 +130,13 @@ class ThreadChartRenderer:
             row_bottom = r * 4
             row_top = (r + 1) * 4
             
-            for i in range(min(len(norm_data) - 1, self.chart_width)):
+            # Render FULL chart width (not just data points!)
+            for i in range(self.chart_width):
+                # After data ends, render empty space
+                if i >= len(norm_data) - 1:
+                    line_buffer += " "
+                    continue
+                    
                 y1, y2 = norm_data[i], norm_data[i+1]
                 
                 char_final = " "
