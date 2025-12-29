@@ -77,7 +77,8 @@ class ThreadChartRenderer:
         self.max_threads = max_threads
         self.terminal_width = terminal_width
         self.height = height
-        self.chart_width = terminal_width - 8
+        # Y-axis is: 4-char label + space + ┃ + space = 7 chars
+        self.chart_width = terminal_width - 7
         
         self.timeline_data: List[DataPoint] = []
         self.start_time = time.time()
