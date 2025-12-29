@@ -108,6 +108,14 @@ def main():
                        help="Use pytest collection for accurate test counts (default: enabled)")
     parser.add_argument("--no-accurate", action="store_false", dest="accurate",
                        help="Disable accurate test counting (faster but less precise)")
+    
+    # Chart configuration
+    parser.add_argument("--chart-height", type=int, default=None, metavar="ROWS",
+                       help="Number of rows for thread chart (default: 6)")
+    parser.add_argument("--chart-width", type=str, default=None, metavar="WIDTH",
+                       help="Chart width: integer for fixed columns, or percentage like '100%%' or '50%%' (default: 100%%)")
+    parser.add_argument("--no-chart", action="store_true",
+                       help="Disable thread chart completely")
     args = parser.parse_args()
     
     # Parse phases argument (handle list and commas)
@@ -706,12 +714,29 @@ def main():
     # Initialization
     collector = MetricsCollector()
     
-    # Initialize thread chart
-    thread_chart = ThreadChartRenderer(
-        max_threads=max_workers,
-        terminal_width=80,
-        height=5
-    )
+    # Parse chart configuration
+    import shutil
+    term_cols = shutil.get_terminal_size().columns
+    chart_height = args.chart_height if args.chart_height else 6
+    chart_width = term_cols  # Default: 100% of terminal
+    
+    if args.chart_width:
+        if args.chart_width.endswith('%'):
+            # Percentage of terminal width
+            pct = int(args.chart_width.rstrip('%'))
+            chart_width = int(term_cols * pct / 100)
+        else:
+            # Fixed width
+            chart_width = int(args.chart_width)
+    
+    # Initialize thread chart (unless disabled)
+    thread_chart = None
+    if not getattr(args, 'no_chart', False):
+        thread_chart = ThreadChartRenderer(
+            max_threads=max_workers,
+            terminal_width=chart_width,
+            height=chart_height
+        )
     
     # Initialize thread pool with chart
     thread_pool = ThreadPoolCoordinator(
@@ -722,8 +747,11 @@ def main():
     
     display = ProgressiveDisplay("RAGE", collector=collector)
     # Give display reference to thread chart AND thread pool
-    display.thread_chart = thread_chart
-    display.thread_chart_enabled = True
+    if thread_chart:
+        display.thread_chart = thread_chart
+        display.thread_chart_enabled = True
+    else:
+        display.thread_chart_enabled = False
     display.thread_pool = thread_pool  # For continuous tracking
     
     logger = MetricsLogger()

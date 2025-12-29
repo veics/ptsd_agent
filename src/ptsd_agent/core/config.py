@@ -80,6 +80,24 @@ class ProjectConfig:
             'max_workers': parallel.get('max_workers', 0)  # 0 = auto-detect
         }
     
+    def get_chart_config(self) -> Dict[str, Any]:
+        """Get chart display configuration
+        
+        Config keys:
+            height: Number of rows (default: 6)
+            width: Fixed columns or percentage string like '100%' (default: '100%')
+            enabled: Whether chart is enabled (default: True)
+        
+        Returns:
+            Dict with chart configuration
+        """
+        chart = self._config.get('chart', {})
+        return {
+            'height': chart.get('height', 6),
+            'width': chart.get('width', '100%'),
+            'enabled': chart.get('enabled', True)
+        }
+    
     def get_phase_config(self, phase_id: int) -> Optional[Dict[str, Any]]:
         """Get configuration for a specific phase"""
         for phase in self.phases:
