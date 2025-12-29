@@ -158,10 +158,10 @@ class ProgressiveDisplay:
         # Thread chart for performance visualization
         try:
             from .thread_chart import ThreadChartRenderer, OperationType
-            # Get max_workers from thread_pool if available, else default to 12
+            # Get max_threads from thread_pool if available, else default to 12
             max_workers = 12
-            if hasattr(self, 'thread_pool') and self.thread_pool and hasattr(self.thread_pool, 'max_workers'):
-                max_workers = self.thread_pool.max_workers
+            if hasattr(self, 'thread_pool') and self.thread_pool and hasattr(self.thread_pool, 'max_threads'):
+                max_workers = self.thread_pool.max_threads
             
             # Use SAME width as bottom bar (self.term_width)
             self.thread_chart = ThreadChartRenderer(
@@ -713,8 +713,8 @@ class ProgressiveDisplay:
                     # Capture current thread state from pool (if available)
                     if hasattr(self, 'thread_pool') and self.thread_pool:
                         # Update max_threads to match actual parallel workers
-                        if hasattr(self.thread_pool, 'max_workers'):
-                            self.thread_chart.set_max_threads(self.thread_pool.max_workers)
+                        if hasattr(self.thread_pool, 'max_threads'):
+                            self.thread_chart.set_max_threads(self.thread_pool.max_threads)
                         
                         # Get active operations by type
                         with self.thread_pool.active_lock:
