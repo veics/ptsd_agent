@@ -58,19 +58,17 @@ class ThreadChartRenderer:
     C_LABEL = '\033[38;5;250m'
     C_RESET = '\033[0m'
     
-    # Row-based color gradient (vertical: bottom=warm -> top=cool)
-    # Like a heatmap: lowest rows are hot colors, highest rows are cool colors
-    ROW_COLORS = [
-        '\033[38;5;214m',  # Row 0 (bottom): Orange
-        '\033[38;5;208m',  # Row 1: Dark orange
-        '\033[38;5;202m',  # Row 2: Red-orange
-        '\033[38;5;196m',  # Row 3: Red
-        '\033[38;5;168m',  # Row 4: Pink/magenta
-        '\033[38;5;134m',  # Row 5: Purple
-        '\033[38;5;99m',   # Row 6: Blue-purple
-        '\033[38;5;69m',   # Row 7: Blue
-        '\033[38;5;39m',   # Row 8: Cyan
-        '\033[38;5;49m',   # Row 9 (top): Cyan-green
+    # Execution block colors - cycle through these for each new execution context
+    # Distinct, visually appealing colors that stand out from each other
+    EXECUTION_COLORS = [
+        '\033[38;5;214m',  # Orange
+        '\033[38;5;42m',   # Green
+        '\033[38;5;39m',   # Cyan/Blue
+        '\033[38;5;168m',  # Pink/Magenta
+        '\033[38;5;226m',  # Yellow
+        '\033[38;5;99m',   # Purple
+        '\033[38;5;202m',  # Red-orange
+        '\033[38;5;49m',   # Teal
     ]
     
     def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 6, colors: dict = None):
@@ -164,6 +162,22 @@ class ThreadChartRenderer:
         scale_y = (self.height * 4) / (effective_max + 1)
         norm_data = [(v * scale_y) for v in values]
         
+        # EXECUTION BLOCK DETECTION: Detect when new execution blocks start
+        # A new block starts when thread count spikes up after being low
+        # This cycles through colors for distinct visual blocks
+        block_colors = []  # Color index for each data point
+        current_color_idx = 0
+        prev_value = 0
+        spike_threshold = max(3, effective_max * 0.15)  # 15% of max or at least 3
+        
+        for v in values:
+            # Detect spike: value increased significantly from low baseline
+            if v > prev_value + spike_threshold and prev_value < spike_threshold * 2:
+                # New execution block - cycle to next color
+                current_color_idx = (current_color_idx + 1) % len(self.EXECUTION_COLORS)
+            block_colors.append(current_color_idx)
+            prev_value = v
+        
         # Calculate filled columns once (used by all rows)
         if self._progress_pct is not None:
             filled_columns = int((self._progress_pct / 100.0) * self.chart_width)
@@ -213,16 +227,15 @@ class ThreadChartRenderer:
                 top_row = max(int(y1 / 4), int(y2 / 4))
                 is_top_row = (r == top_row)
                 
-                # ROW-BASED COLOR: Each row gets a distinct color (vertical gradient)
-                # r is the row index (0 = bottom, height-1 = top)
-                row_pct = r / (self.height - 1) if self.height > 1 else 0
-                color_idx = int(row_pct * (len(self.ROW_COLORS) - 1))
-                row_color = self.ROW_COLORS[color_idx]
+                # EXECUTION BLOCK COLOR: Use pre-computed color based on execution context
+                # Each execution block (detected by thread count spikes) gets a distinct color
+                exec_color_idx = block_colors[data_idx] if data_idx < len(block_colors) else 0
+                exec_color = self.EXECUTION_COLORS[exec_color_idx]
                 
-                # LAYER 1: Base chart (colored by row gradient)
+                # LAYER 1: Base chart (colored by execution block)
                 if y1 >= row_top and y2 >= row_top:
-                    # Full block - use row color
-                    color_final = row_color
+                    # Full block - use execution color
+                    color_final = exec_color
                     char_final = CHAR_FILL
                     
                     # ALSO render green on top if this is THE top row
@@ -250,9 +263,9 @@ class ThreadChartRenderer:
                         char_final = LUT_CHAIN[gy1][gy2]
                         color_final = self.C_GREEN
                     else:
-                        # Lower edge - use row color with braille pattern
+                        # Lower edge - use execution color with braille pattern
                         char_final = LUT_SMOOTH[ly1][ly2]
-                        color_final = row_color
+                        color_final = exec_color
                 
                 line_buffer += f"{color_final}{char_final}"
             
