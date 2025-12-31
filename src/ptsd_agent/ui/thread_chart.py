@@ -222,15 +222,16 @@ class ThreadChartRenderer:
                 top_row = max(int(y1 / 4), int(y2 / 4))
                 is_top_row = (r == top_row)
                 
-                # ROW-BASED COLOR: Each horizontal band (row) gets a distinct color
-                # This creates layered color bands like in the reference screenshot
-                row_color_idx = r % len(self.EXECUTION_COLORS)
-                row_color = self.EXECUTION_COLORS[row_color_idx]
+                # PSEUDORANDOM COLOR: Mix row and column for varied distribution
+                # Using a simple hash to break horizontal stripe pattern
+                # This creates a more random appearance while being deterministic
+                color_seed = (r * 7 + i * 13) % len(self.EXECUTION_COLORS)
+                cell_color = self.EXECUTION_COLORS[color_seed]
                 
-                # LAYER 1: Base chart (colored by row/band)
+                # LAYER 1: Base chart (colored pseudorandomly)
                 if y1 >= row_top and y2 >= row_top:
-                    # Full block - use row color
-                    color_final = row_color
+                    # Full block - use pseudorandom color
+                    color_final = cell_color
                     char_final = CHAR_FILL
                     
                     # ALSO render green on top if this is THE top row
@@ -258,9 +259,9 @@ class ThreadChartRenderer:
                         char_final = LUT_CHAIN[gy1][gy2]
                         color_final = self.C_GREEN
                     else:
-                        # Lower edge - use row color with braille pattern
+                        # Lower edge - use cell color with braille pattern
                         char_final = LUT_SMOOTH[ly1][ly2]
-                        color_final = row_color
+                        color_final = cell_color
                 
                 line_buffer += f"{color_final}{char_final}"
             
