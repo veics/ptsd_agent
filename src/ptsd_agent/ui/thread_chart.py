@@ -58,19 +58,19 @@ class ThreadChartRenderer:
     C_LABEL = '\033[38;5;250m'
     C_RESET = '\033[0m'
     
-    # Density-based color gradient (cool to warm based on thread utilization)
-    # Colors transition from blue/teal (low) -> green/yellow (mid) -> orange/red (high)
-    DENSITY_COLORS = [
-        '\033[38;5;24m',   # 0-10%: Dark blue
-        '\033[38;5;30m',   # 10-20%: Teal
-        '\033[38;5;36m',   # 20-30%: Cyan-green
-        '\033[38;5;42m',   # 30-40%: Green
-        '\033[38;5;78m',   # 40-50%: Light green
-        '\033[38;5;148m',  # 50-60%: Yellow-green
-        '\033[38;5;214m',  # 60-70%: Orange
-        '\033[38;5;208m',  # 70-80%: Dark orange
-        '\033[38;5;202m',  # 80-90%: Red-orange
-        '\033[38;5;196m',  # 90-100%: Red
+    # Row-based color gradient (vertical: bottom=warm -> top=cool)
+    # Like a heatmap: lowest rows are hot colors, highest rows are cool colors
+    ROW_COLORS = [
+        '\033[38;5;214m',  # Row 0 (bottom): Orange
+        '\033[38;5;208m',  # Row 1: Dark orange
+        '\033[38;5;202m',  # Row 2: Red-orange
+        '\033[38;5;196m',  # Row 3: Red
+        '\033[38;5;168m',  # Row 4: Pink/magenta
+        '\033[38;5;134m',  # Row 5: Purple
+        '\033[38;5;99m',   # Row 6: Blue-purple
+        '\033[38;5;69m',   # Row 7: Blue
+        '\033[38;5;39m',   # Row 8: Cyan
+        '\033[38;5;49m',   # Row 9 (top): Cyan-green
     ]
     
     def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 6, colors: dict = None):
@@ -213,17 +213,16 @@ class ThreadChartRenderer:
                 top_row = max(int(y1 / 4), int(y2 / 4))
                 is_top_row = (r == top_row)
                 
-                # DENSITY-BASED COLOR: Pick color based on thread utilization
-                # y_max is the thread count at this column, max_threads is the maximum
-                y_max = max(y1, y2)
-                density_pct = min(1.0, y_max / (self.max_threads * 4)) if self.max_threads > 0 else 0
-                color_idx = int(density_pct * (len(self.DENSITY_COLORS) - 1))
-                density_color = self.DENSITY_COLORS[color_idx]
+                # ROW-BASED COLOR: Each row gets a distinct color (vertical gradient)
+                # r is the row index (0 = bottom, height-1 = top)
+                row_pct = r / (self.height - 1) if self.height > 1 else 0
+                color_idx = int(row_pct * (len(self.ROW_COLORS) - 1))
+                row_color = self.ROW_COLORS[color_idx]
                 
-                # LAYER 1: Base chart (colored by density gradient)
+                # LAYER 1: Base chart (colored by row gradient)
                 if y1 >= row_top and y2 >= row_top:
-                    # Full block - use density color
-                    color_final = density_color
+                    # Full block - use row color
+                    color_final = row_color
                     char_final = CHAR_FILL
                     
                     # ALSO render green on top if this is THE top row
@@ -251,9 +250,9 @@ class ThreadChartRenderer:
                         char_final = LUT_CHAIN[gy1][gy2]
                         color_final = self.C_GREEN
                     else:
-                        # Lower edge - use density color with braille pattern
+                        # Lower edge - use row color with braille pattern
                         char_final = LUT_SMOOTH[ly1][ly2]
-                        color_final = density_color
+                        color_final = row_color
                 
                 line_buffer += f"{color_final}{char_final}"
             
