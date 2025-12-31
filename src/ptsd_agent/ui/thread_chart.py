@@ -207,13 +207,17 @@ class ThreadChartRenderer:
                 top_row = max(int(y1 / 4), int(y2 / 4))
                 is_top_row = (r == top_row)
                 
-                # LAYER 1: Base chart (orange blocks)
+                # Get operation color for this data point
+                point = self.timeline_data[min(data_idx, len(self.timeline_data) - 1)]
+                op_color = self.C_ORANGE  # Default orange
+                if point.operations:
+                    op = max(point.operations.items(), key=lambda x: x[1])[0]
+                    op_color = self.OP_COLORS_MAP.get(op, self.C_ORANGE)
+                
+                # LAYER 1: Base chart (colored by operation type)
                 if y1 >= row_top and y2 >= row_top:
-                    # Full block
-                    point = self.timeline_data[min(data_idx, len(self.timeline_data) - 1)]
-                    if point.operations:
-                        op = max(point.operations.items(), key=lambda x: x[1])[0]
-                        color_final = self.OP_COLORS_MAP.get(op, self.C_RESET)
+                    # Full block - use operation color
+                    color_final = op_color
                     char_final = CHAR_FILL
                     
                     # ALSO render green on top if this is THE top row
@@ -241,9 +245,9 @@ class ThreadChartRenderer:
                         char_final = LUT_CHAIN[gy1][gy2]
                         color_final = self.C_GREEN
                     else:
-                        # Lower edge - use braille L (⡇) for vertical connector in green
-                        char_final = '⡇'  # Braille L connector
-                        color_final = self.C_GREEN
+                        # Lower edge - use operation color with braille pattern
+                        char_final = LUT_SMOOTH[ly1][ly2]
+                        color_final = op_color
                 
                 line_buffer += f"{color_final}{char_final}"
             
