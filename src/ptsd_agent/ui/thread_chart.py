@@ -154,17 +154,15 @@ class ThreadChartRenderer:
         visible_idx = len(values)
         
         # Scale based on effective_max (dynamic scaling)
-        scale_y = (self.height * 4) / (effective_max + 1)
+        # Leave 1 row of headroom at top for green line (scale to height-1 instead of height)
+        data_height = self.height - 1  # Reserve top row for green line
+        scale_y = (data_height * 4) / (effective_max + 1)
         norm_data = [(v * scale_y) for v in values]
         
-        # GREEN OVERLAY: Smooth the data for the green chain
-        green_data = []
-        for i in range(len(values)):
-            start = max(0, i-2)
-            end = min(len(values), i+2)
-            avg = sum(values[start:end]) / (end - start)
-            # Offset slightly above for visibility
-            green_data.append((avg + 2) * scale_y)
+        # GREEN OVERLAY: Render in the TOP row (reserved for green)
+        # Green data is the same as norm_data but placed in the top row area
+        green_row = self.height - 1  # The reserved top row
+        green_data_y = green_row * 4 + 2  # Fixed Y position in top row (middle of top row)
         
         # Render rows
         for r in range(self.height - 1, -1, -1):
@@ -228,24 +226,14 @@ class ThreadChartRenderer:
                     char_final = LUT_SMOOTH[ly1][ly2]
                     color_final = self.C_ORANGE
                 
-                # LAYER 2: Green chain overlay - ONLY on TOP row, NEVER under orange blocks
-                # Only render green if:
-                # 1. This is the exact row where green should appear (single row only)
-                # 2. There's NO orange block already at this position (char_final is empty)
-                if data_idx < len(green_data) - 1 and char_final == " ":
-                    g_y1, g_y2 = green_data[data_idx], green_data[data_idx + 1]
-                    
-                    # Calculate the SINGLE row where green should appear (use max for top)
-                    green_row = max(int(g_y1 / 4), int(g_y2 / 4))
-                    
-                    # Only render if this row (r) is the exact green row
-                    if r == green_row:
-                        gy1_loc = int(max(0, min(4, g_y1 - row_bottom)))
-                        gy2_loc = int(max(0, min(4, g_y2 - row_bottom)))
-                        chain_char = LUT_CHAIN[gy1_loc][gy2_loc]
-                        if chain_char != '⠀':
-                            char_final = chain_char
-                            color_final = self.C_GREEN
+                # LAYER 2: Green dotted line - ALWAYS rendered in TOP ROW
+                # Top row is reserved for green line (r == self.height - 1)
+                if r == self.height - 1 and i < filled_columns:
+                    # Simple dotted pattern in the middle of the top row
+                    # Use dots at fixed position (middle of row = 2)
+                    chain_char = LUT_CHAIN[2][2]  # Middle dots
+                    char_final = chain_char
+                    color_final = self.C_GREEN
                 
                 line_buffer += f"{color_final}{char_final}"
             
