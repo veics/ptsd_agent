@@ -93,7 +93,9 @@ class TestExecutor:
         """
         # Special cases for phase 1 components
         if component_name == "architecture":
-            core_path = Path("core").absolute()
+            # Use project_root for correct path resolution
+            base_path = Path(self.project_root) if self.project_root else Path.cwd()
+            core_path = base_path / "core"
             if core_path.exists():
                 return str(core_path)
         elif component_name == "contracts":
@@ -115,8 +117,10 @@ class TestExecutor:
         Returns:
             Tuple of (pytest_cmd, python_executable)
             - If service has its own venv, use that
-            - Otherwise use main venv
+            - Otherwise check project's main .venv
+            - Finally fall back to sys.executable
         """
+        # First check for service-specific venv
         service_dir = self._get_service_dir_for_path(test_path)
         if service_dir:
             # Check for service-specific venv
@@ -130,7 +134,17 @@ class TestExecutor:
             if service_venv_pytest.exists():
                 return str(service_venv_pytest), str(service_venv_python)
         
-        # Fallback to main venv
+        # Check project's main .venv next (using project_root)
+        if self.project_root:
+            project_venv_python = Path(self.project_root) / ".venv" / "bin" / "python"
+            if project_venv_python.exists():
+                return f"{project_venv_python} -m pytest", str(project_venv_python)
+            # Also check venv (without dot)
+            project_venv_python = Path(self.project_root) / "venv" / "bin" / "python"
+            if project_venv_python.exists():
+                return f"{project_venv_python} -m pytest", str(project_venv_python)
+        
+        # Fallback to ptsd_agent's venv (last resort)
         return f"{sys.executable} -m pytest", sys.executable
 
     def _get_pythonpath_for_test(self, test_path: str) -> Optional[str]:
@@ -368,6 +382,8 @@ class TestExecutor:
         logger.debug(f"[{component_name}] PYTHONPATH: {env.get('PYTHONPATH', 'not set')}")
         logger.debug(f"[{component_name}] Coverage path: {cov_path_str if cov_path_str else 'none'}")
         
+
+        
         try:
             process = subprocess.Popen(
                 cmd,
@@ -601,6 +617,8 @@ class TestExecutor:
             if callback:
                 callback(test_name)
             
+
+            
             # Store the test result
             self.collector.record_test(component_name, TestResult(
                 name=test_name,
@@ -608,6 +626,8 @@ class TestExecutor:
                 duration=0.05,
                 error_message=None  # Will be populated by _capture_errors
             ))
+            # DEBUG: Log recorded test
+            logger.debug(f"[{component_name}] RECORDED: {test_name} = {status.lower()}")
         
         # Capture failure/error details for later matching
         # Store lines that look like error output for the MCP to access
