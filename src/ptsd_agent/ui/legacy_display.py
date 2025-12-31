@@ -175,10 +175,19 @@ class ProgressiveDisplay:
             self.thread_chart_enabled = False
         
         self.lines = []
+        self._current_operation_type = 'execution'  # Default operation type for chart coloring
     
     def refresh_width(self):
         """Refresh terminal width before building lines."""
         self.term_width = max(self.MIN_TERM_WIDTH, self.terminal.get_size()[0])
+    
+    def set_operation_type(self, op_type: str):
+        """Set the current operation type for chart coloring.
+        
+        Args:
+            op_type: One of 'discovery', 'execution', 'ai', 'fix', 'cache'
+        """
+        self._current_operation_type = op_type
         
     def build_metrics_block(self, component_name=None, component_names=None):
         """Build metrics block using MetricsBlock class - delegates to components.py"""
@@ -719,9 +728,18 @@ class ProgressiveDisplay:
                         if hasattr(self.thread_pool, 'get_active_operations_by_type'):
                             ops_by_type = self.thread_pool.get_active_operations_by_type()
                     
-                    # Fallback: if no real breakdown, use active_count as EXECUTION
+                    # Fallback: if no real breakdown, use active_count with current operation type
                     if not ops_by_type and active_count > 0:
-                        ops_by_type = {OperationType.EXECUTION: active_count}
+                        # Map string operation type to enum
+                        op_type_map = {
+                            'discovery': OperationType.DISCOVERY,
+                            'execution': OperationType.EXECUTION,
+                            'ai': OperationType.AI_ANALYSIS,
+                            'fix': OperationType.AUTO_FIX,
+                            'cache': OperationType.CACHE,
+                        }
+                        current_op = op_type_map.get(self._current_operation_type, OperationType.EXECUTION)
+                        ops_by_type = {current_op: active_count}
                     
                     # ALWAYS add data point on progress change (even if 0 threads)
                     # This ensures chart timeline matches progress bar
