@@ -12,6 +12,7 @@ from ptsd_agent.metrics.legacy_logger import MetricsLogger
 from ptsd_agent.execution.legacy_executor import TestExecutor
 from ptsd_agent.core.config import load_config
 from ptsd_agent.core.thread_pool import ThreadPoolCoordinator, OperationType
+from ptsd_agent.infrastructure.manager import InfrastructureManager, InfrastructureConfig
 # from ptsd_agent.report_logging import get_log_manager  # TODO: Fix module path
 
 def _signal_handler(signum, frame):
@@ -108,6 +109,12 @@ def main():
                        help="Use pytest collection for accurate test counts (default: enabled)")
     parser.add_argument("--no-accurate", action="store_false", dest="accurate",
                        help="Disable accurate test counting (faster but less precise)")
+    
+    # Infrastructure Initialization
+    parser.add_argument("--infra", action="store_true", default=None,
+                       help="Enable infrastructure setup (install deps, start Docker, run migrations)")
+    parser.add_argument("--no-infra", action="store_false", dest="infra",
+                       help="Skip infrastructure setup (run tests only)")
     
     # Chart configuration
     parser.add_argument("--chart-height", type=int, default=None, metavar="ROWS",
@@ -655,6 +662,39 @@ def main():
 
     # Load project configuration from .ptsd.yaml
     project_config = load_config(".")
+    
+    # Infrastructure Initialization (if enabled via --infra or config)
+    if args.infra is True or (args.infra is None and project_config.get('infrastructure', {}).get('enabled', False)):
+        from ptsd_agent.ui.theme import GREEN, YELLOW, GRAY, RESET, BOLD
+        print(f"{BOLD}Infrastructure:{RESET}")
+        
+        # Load infrastructure config from .ptsd.yaml
+        infra_config = InfrastructureConfig.from_dict(project_config.__dict__ if hasattr(project_config, '__dict__') else {})
+        
+        # Create manager with progress callback
+        def infra_progress(phase, message, progress):
+            phase_icon = {"dependencies": "📦", "docker": "🐳", "migrations": "🗄️", "complete": "✓"}.get(phase.value, "⏳")
+            print(f"  {phase_icon} {message}", end="\r", flush=True)
+        
+        infra_manager = InfrastructureManager(
+            project_root=os.getcwd(),
+            config=infra_config,
+            progress_callback=infra_progress
+        )
+        
+        # Run infrastructure setup
+        infra_result = infra_manager.setup()
+        
+        if infra_result.success:
+            print(f"  {GREEN}✓{RESET} {infra_result.summary}")
+        else:
+            print(f"  {YELLOW}⚠{RESET} Infrastructure setup failed: {infra_result.error_message}")
+            if not args.infra:  # Only fail hard if --infra was explicitly set
+                print(f"  {GRAY}Continuing without infrastructure...{RESET}")
+            else:
+                print(f"  {GRAY}Aborting due to --infra flag{RESET}")
+                return
+        print()
     
     # Build phase_configs from loaded config
     # Build phase_configs from loaded config will be done after args parsing
