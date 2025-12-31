@@ -222,15 +222,15 @@ class ThreadChartRenderer:
                 top_row = max(int(y1 / 4), int(y2 / 4))
                 is_top_row = (r == top_row)
                 
-                # EXECUTION BLOCK COLOR: Use pre-computed color based on execution context
-                # Each execution block (detected by thread count spikes) gets a distinct color
-                exec_color_idx = block_colors[data_idx] if data_idx < len(block_colors) else 0
-                exec_color = self.EXECUTION_COLORS[exec_color_idx]
+                # ROW-BASED COLOR: Each horizontal band (row) gets a distinct color
+                # This creates layered color bands like in the reference screenshot
+                row_color_idx = r % len(self.EXECUTION_COLORS)
+                row_color = self.EXECUTION_COLORS[row_color_idx]
                 
-                # LAYER 1: Base chart (colored by execution block)
+                # LAYER 1: Base chart (colored by row/band)
                 if y1 >= row_top and y2 >= row_top:
-                    # Full block - use execution color
-                    color_final = exec_color
+                    # Full block - use row color
+                    color_final = row_color
                     char_final = CHAR_FILL
                     
                     # ALSO render green on top if this is THE top row
@@ -258,9 +258,9 @@ class ThreadChartRenderer:
                         char_final = LUT_CHAIN[gy1][gy2]
                         color_final = self.C_GREEN
                     else:
-                        # Lower edge - use execution color with braille pattern
+                        # Lower edge - use row color with braille pattern
                         char_final = LUT_SMOOTH[ly1][ly2]
-                        color_final = exec_color
+                        color_final = row_color
                 
                 line_buffer += f"{color_final}{char_final}"
             
