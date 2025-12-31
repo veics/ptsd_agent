@@ -58,18 +58,16 @@ class ThreadChartRenderer:
     C_LABEL = '\033[38;5;250m'
     C_RESET = '\033[0m'
     
-    # Execution block colors - cycle through these for each new execution context
-    # Distinct, visually appealing colors that stand out from each other
-    EXECUTION_COLORS = [
-        '\033[38;5;214m',  # Orange
-        '\033[38;5;42m',   # Green
-        '\033[38;5;39m',   # Cyan/Blue
-        '\033[38;5;168m',  # Pink/Magenta
-        '\033[38;5;226m',  # Yellow
-        '\033[38;5;99m',   # Purple
-        '\033[38;5;202m',  # Red-orange
-        '\033[38;5;49m',   # Teal
-    ]
+    # Operation type colors - specific colors for each execution context
+    OP_TYPE_COLORS = {
+        'discovery': '\033[38;5;75m',   # Light blue - discovery/init phase
+        'execution': '\033[38;5;108m',  # Sage green - test execution
+        'ai': '\033[38;5;180m',         # Tan - AI analysis
+        'fix': '\033[38;5;174m',        # Dusty rose - auto-fixing
+        'cache': '\033[38;5;109m',      # Teal - cache operations
+    }
+    # Default color for fallback
+    DEFAULT_OP_COLOR = '\033[38;5;108m'  # Sage green
     
     def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 6, colors: dict = None):
         """Initialize.
@@ -162,16 +160,22 @@ class ThreadChartRenderer:
         scale_y = (self.height * 4) / (effective_max + 1)
         norm_data = [(v * scale_y) for v in values]
         
-        # SEGMENT-BASED COLORING: Cycle through colors in small segments
-        # This creates vertical color stripes as the chart progresses
-        block_colors = []  # Color index for each data point
-        num_colors = len(self.EXECUTION_COLORS)
-        segment_size = 4  # Very small segments for frequent color changes
-        
-        for i, v in enumerate(values):
-            # Change color every segment_size data points
-            color_idx = (i // segment_size) % num_colors
-            block_colors.append(color_idx)
+        # Extract operation type for each data point (for coloring)
+        # Each data point has operations dict: {OperationType: count}
+        # We use the dominant operation type for coloring
+        op_types = []  # String key for OP_TYPE_COLORS for each data point
+        for point in self.timeline_data:
+            try:
+                if point.operations and len(point.operations) > 0:
+                    # Get the dominant operation type
+                    dom_op = max(point.operations.items(), key=lambda x: x[1])[0]
+                    # Convert enum to string key
+                    op_key = dom_op.value if hasattr(dom_op, 'value') else str(dom_op)
+                    op_types.append(op_key)
+                else:
+                    op_types.append('execution')  # Default
+            except Exception:
+                op_types.append('execution')  # Safe fallback
         
         # Calculate filled columns once (used by all rows)
         if self._progress_pct is not None:
@@ -222,16 +226,14 @@ class ThreadChartRenderer:
                 top_row = max(int(y1 / 4), int(y2 / 4))
                 is_top_row = (r == top_row)
                 
-                # PSEUDORANDOM COLOR: Mix row and column for varied distribution
-                # Using a simple hash to break horizontal stripe pattern
-                # This creates a more random appearance while being deterministic
-                color_seed = (r * 7 + i * 13) % len(self.EXECUTION_COLORS)
-                cell_color = self.EXECUTION_COLORS[color_seed]
+                # OPERATION TYPE COLOR: Use color based on actual operation type
+                op_key = op_types[data_idx] if data_idx < len(op_types) else 'execution'
+                op_color = self.OP_TYPE_COLORS.get(op_key, self.DEFAULT_OP_COLOR)
                 
-                # LAYER 1: Base chart (colored pseudorandomly)
+                # LAYER 1: Base chart (colored by operation type)
                 if y1 >= row_top and y2 >= row_top:
-                    # Full block - use pseudorandom color
-                    color_final = cell_color
+                    # Full block - use operation type color
+                    color_final = op_color
                     char_final = CHAR_FILL
                     
                     # ALSO render green on top if this is THE top row
@@ -259,9 +261,9 @@ class ThreadChartRenderer:
                         char_final = LUT_CHAIN[gy1][gy2]
                         color_final = self.C_GREEN
                     else:
-                        # Lower edge - use cell color with braille pattern
+                        # Lower edge - use operation type color with braille pattern
                         char_final = LUT_SMOOTH[ly1][ly2]
-                        color_final = cell_color
+                        color_final = op_color
                 
                 line_buffer += f"{color_final}{char_final}"
             
