@@ -4,6 +4,7 @@ Perfect animation with Y-axis labels, smooth LUT rendering, timeline.
 """
 
 import time
+import math
 from typing import List, Dict
 from dataclasses import dataclass
 from enum import Enum
@@ -217,8 +218,11 @@ class ThreadChartRenderer:
                     
                     # ALSO render green on top if this is the top edge row
                     if is_top_edge_row:
-                        # Green dots at the top of the full block
-                        char_final = LUT_CHAIN[4][4]  # Top position dots
+                        # Add wave oscillation for dynamic appearance
+                        wave = math.sin(i * 0.3) * 1.5  # Oscillation based on column
+                        wave_pos1 = int(max(1, min(4, 3 + wave)))
+                        wave_pos2 = int(max(1, min(4, 3 + math.sin((i + 1) * 0.3) * 1.5)))
+                        char_final = LUT_CHAIN[wave_pos1][wave_pos2]
                         color_final = self.C_GREEN
                 
                 elif y1 < row_bottom and y2 < row_bottom:
@@ -230,8 +234,11 @@ class ThreadChartRenderer:
                     ly2 = int(max(0, min(4, y2 - row_bottom + 0.5)))
                     
                     if is_top_edge_row:
-                        # Render GREEN dotted line at the top edge
-                        char_final = LUT_CHAIN[ly1][ly2]
+                        # Render GREEN dotted line at the top edge with wave
+                        wave = math.sin(i * 0.3) * 0.8
+                        gy1 = int(max(0, min(4, ly1 + wave)))
+                        gy2 = int(max(0, min(4, ly2 + math.sin((i + 1) * 0.3) * 0.8)))
+                        char_final = LUT_CHAIN[gy1][gy2]
                         color_final = self.C_GREEN
                     else:
                         # Render orange braille for lower edges
