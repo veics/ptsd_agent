@@ -53,18 +53,27 @@ class InfrastructureConfig:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "InfrastructureConfig":
-        """Create config from dictionary (e.g., from YAML)."""
+        """Create config from dictionary (e.g., from YAML).
+        
+        If no infrastructure section exists, returns defaults (disabled).
+        """
         if not data:
             return cls()
         
         infra = data.get("infrastructure", {})
+        
+        # If no infrastructure config, return defaults (disabled)
+        if not infra:
+            return cls()
+        
         deps = infra.get("dependencies", {})
         docker = infra.get("docker", {})
         migrations = infra.get("migrations", {})
         
         return cls(
-            enabled=infra.get("enabled", True),
-            auto_install_dependencies=deps.get("auto_install", True),
+            # Only enable if explicitly set in config
+            enabled=infra.get("enabled", False),
+            auto_install_dependencies=deps.get("auto_install", False),
             requirements_files=deps.get("requirements_files", ["requirements.txt"]),
             dependency_timeout=deps.get("timeout", 300),
             docker_enabled=docker.get("enabled", True),

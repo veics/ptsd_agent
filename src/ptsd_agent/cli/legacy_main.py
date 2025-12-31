@@ -671,6 +671,10 @@ def main():
         # Load infrastructure config from .ptsd.yaml
         infra_config = InfrastructureConfig.from_dict(project_config.__dict__ if hasattr(project_config, '__dict__') else {})
         
+        # Force enabled when --infra flag is used
+        if args.infra is True:
+            infra_config.enabled = True
+        
         # Create manager with progress callback
         def infra_progress(phase, message, progress):
             phase_icon = {"dependencies": "📦", "docker": "🐳", "migrations": "🗄️", "complete": "✓"}.get(phase.value, "⏳")

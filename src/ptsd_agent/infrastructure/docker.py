@@ -86,7 +86,7 @@ class DockerManager:
             return self.project_root / specified if (self.project_root / specified).exists() else None
         
         # Auto-detect common compose file names
-        candidates = [
+        compose_names = [
             "docker-compose.test.yml",
             "docker-compose.test.yaml",
             "docker-compose.yml",
@@ -95,10 +95,24 @@ class DockerManager:
             "compose.yaml",
         ]
         
-        for candidate in candidates:
-            path = self.project_root / candidate
-            if path.exists():
-                return path
+        # Common directories to search
+        search_dirs = [
+            self.project_root,
+            self.project_root / "infra" / "docker",
+            self.project_root / "infra",
+            self.project_root / "docker",
+            self.project_root / ".docker",
+        ]
+        
+        # Prioritize test compose files in infra/docker/
+        for search_dir in search_dirs:
+            if not search_dir.exists():
+                continue
+            for candidate in compose_names:
+                path = search_dir / candidate
+                if path.exists():
+                    logger.debug(f"Found compose file: {path}")
+                    return path
         
         return None
     
