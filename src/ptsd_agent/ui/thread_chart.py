@@ -58,18 +58,16 @@ class ThreadChartRenderer:
     C_LABEL = '\033[38;5;250m'
     C_RESET = '\033[0m'
     
-    # Row colors - each horizontal band gets a distinct color (bottom to top)
-    # Creates visual variety within each column
-    ROW_COLORS = [
-        '\033[38;5;214m',  # Row 0: Orange (bottom)
-        '\033[38;5;220m',  # Row 1: Yellow
-        '\033[38;5;42m',   # Row 2: Green
-        '\033[38;5;39m',   # Row 3: Cyan
-        '\033[38;5;75m',   # Row 4: Light Blue
-        '\033[38;5;99m',   # Row 5: Purple (top)
-        '\033[38;5;168m',  # Row 6: Pink
-        '\033[38;5;202m',  # Row 7: Red-orange
-    ]
+    # Operation type colors - specific colors for each execution context
+    OP_TYPE_COLORS = {
+        'discovery': '\033[38;5;75m',   # Light blue - discovery/init phase
+        'execution': '\033[38;5;108m',  # Sage green - test execution
+        'ai': '\033[38;5;180m',         # Tan - AI analysis
+        'fix': '\033[38;5;174m',        # Dusty rose - auto-fixing
+        'cache': '\033[38;5;109m',      # Teal - cache operations
+    }
+    # Default color for fallback
+    DEFAULT_OP_COLOR = '\033[38;5;108m'  # Sage green
     
     def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 6, colors: dict = None):
         """Initialize.
@@ -162,22 +160,25 @@ class ThreadChartRenderer:
         scale_y = (self.height * 4) / (effective_max + 1)
         norm_data = [(v * scale_y) for v in values]
         
-        # Extract operation type for each data point (for coloring)
+        # Extract ALL operation types for each data point (for multi-color columns)
         # Each data point has operations dict: {OperationType: count}
-        # We use the dominant operation type for coloring
-        op_types = []  # String key for OP_TYPE_COLORS for each data point
+        # We store ALL active types so each row can randomly pick one
+        op_types_per_column = []  # List of lists: [[op_key, op_key, ...], ...]
         for point in self.timeline_data:
             try:
                 if point.operations and len(point.operations) > 0:
-                    # Get the dominant operation type
-                    dom_op = max(point.operations.items(), key=lambda x: x[1])[0]
-                    # Convert enum to string key
-                    op_key = dom_op.value if hasattr(dom_op, 'value') else str(dom_op)
-                    op_types.append(op_key)
+                    # Get ALL active operation types (not just dominant)
+                    active_ops = []
+                    for op, count in point.operations.items():
+                        if count > 0:
+                            op_key = op.value if hasattr(op, 'value') else str(op)
+                            # Add op_key multiple times based on count for weighted distribution
+                            active_ops.extend([op_key] * min(count, 3))  # Cap at 3 to avoid skewing
+                    op_types_per_column.append(active_ops if active_ops else ['execution'])
                 else:
-                    op_types.append('execution')  # Default
+                    op_types_per_column.append(['execution'])  # Default
             except Exception:
-                op_types.append('execution')  # Safe fallback
+                op_types_per_column.append(['execution'])  # Safe fallback
         
         # Calculate filled columns once (used by all rows)
         if self._progress_pct is not None:
@@ -228,13 +229,18 @@ class ThreadChartRenderer:
                 top_row = max(int(y1 / 4), int(y2 / 4))
                 is_top_row = (r == top_row)
                 
-                # ROW-BASED COLOR: Each horizontal band gets a distinct color
-                row_color = self.ROW_COLORS[r % len(self.ROW_COLORS)]
+                # MIXED OPERATION COLORS: Pick from available ops using row+column hash
+                # This creates random distribution of colors within a column
+                available_ops = op_types_per_column[data_idx] if data_idx < len(op_types_per_column) else ['execution']
+                # Use deterministic "random" based on row and column for reproducible pattern
+                op_idx = (r * 7 + i * 13) % len(available_ops)
+                op_key = available_ops[op_idx]
+                op_color = self.OP_TYPE_COLORS.get(op_key, self.DEFAULT_OP_COLOR)
                 
-                # LAYER 1: Base chart (colored by row/band)
+                # LAYER 1: Base chart (colored by operation type)
                 if y1 >= row_top and y2 >= row_top:
-                    # Full block - use row color
-                    color_final = row_color
+                    # Full block - use operation type color
+                    color_final = op_color
                     char_final = CHAR_FILL
                     
                     # ALSO render green on top if this is THE top row
@@ -262,9 +268,9 @@ class ThreadChartRenderer:
                         char_final = LUT_CHAIN[gy1][gy2]
                         color_final = self.C_GREEN
                     else:
-                        # Lower edge - use row color with braille pattern
+                        # Lower edge - use operation type color with braille pattern
                         char_final = LUT_SMOOTH[ly1][ly2]
-                        color_final = row_color
+                        color_final = op_color
                 
                 line_buffer += f"{color_final}{char_final}"
             
