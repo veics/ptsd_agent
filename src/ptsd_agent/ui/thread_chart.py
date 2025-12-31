@@ -153,16 +153,9 @@ class ThreadChartRenderer:
         values = [p.total_threads for p in self.timeline_data]
         visible_idx = len(values)
         
-        # Scale based on effective_max (dynamic scaling)
-        # Leave 1 row of headroom at top for green line (scale to height-1 instead of height)
-        data_height = self.height - 1  # Reserve top row for green line
-        scale_y = (data_height * 4) / (effective_max + 1)
+        # Scale based on effective_max (dynamic scaling) - use FULL height
+        scale_y = (self.height * 4) / (effective_max + 1)
         norm_data = [(v * scale_y) for v in values]
-        
-        # GREEN OVERLAY: Render in the TOP row (reserved for green)
-        # Green data is the same as norm_data but placed in the top row area
-        green_row = self.height - 1  # The reserved top row
-        green_data_y = green_row * 4 + 2  # Fixed Y position in top row (middle of top row)
         
         # Calculate filled columns once (used by all rows)
         if self._progress_pct is not None:
@@ -171,17 +164,8 @@ class ThreadChartRenderer:
             filled_columns = len(norm_data) if norm_data else 0
         filled_columns = min(filled_columns, self.chart_width)
         
-        # FIRST: Render GREEN LINE ROW (dedicated top row)
-        green_line = f"{self.C_LABEL}     {self.C_AXIS}┃ {self.C_RESET}"
-        for i in range(self.chart_width):
-            if i < filled_columns:
-                green_line += f"{self.C_GREEN}{LUT_CHAIN[2][2]}"  # Middle dots
-            else:
-                green_line += " "
-        output.append(green_line + self.C_RESET)
-        
-        # THEN: Render DATA rows (0 to height-2, since height-1 is green line)
-        for r in range(self.height - 2, -1, -1):
+        # Render DATA rows with integrated green line at TOP EDGE
+        for r in range(self.height - 1, -1, -1):
             line_buffer = ""
             
             # Y-axis with cyan separator
@@ -212,13 +196,19 @@ class ThreadChartRenderer:
                     continue
                 
                 y1, y2 = norm_data[data_idx], norm_data[data_idx + 1]
+                y_max = max(y1, y2)  # Top edge of the data at this column
                 
                 char_final = " "
                 color_final = self.C_RESET
+                is_top_edge_row = False
                 
-                # LAYER 1: Base chart
+                # Check if this row contains the TOP EDGE of the data
+                top_edge_row = int(y_max / 4)
+                is_top_edge_row = (r == top_edge_row)
+                
+                # LAYER 1: Base chart (orange blocks)
                 if y1 >= row_top and y2 >= row_top:
-                    # Full block
+                    # Full block - NOT the top edge
                     point = self.timeline_data[min(data_idx, len(self.timeline_data) - 1)]
                     if point.operations:
                         op = max(point.operations.items(), key=lambda x: x[1])[0]
@@ -229,11 +219,18 @@ class ThreadChartRenderer:
                     char_final = " "
                 
                 else:
-                    # EDGE - crisp with int(x + 0.5) for threshold rounding
+                    # EDGE row - this is where green line should go!
                     ly1 = int(max(0, min(4, y1 - row_bottom + 0.5)))
                     ly2 = int(max(0, min(4, y2 - row_bottom + 0.5)))
-                    char_final = LUT_SMOOTH[ly1][ly2]
-                    color_final = self.C_ORANGE
+                    
+                    if is_top_edge_row:
+                        # Render GREEN dotted line at the top edge
+                        char_final = LUT_CHAIN[ly1][ly2]
+                        color_final = self.C_GREEN
+                    else:
+                        # Render orange braille for lower edges
+                        char_final = LUT_SMOOTH[ly1][ly2]
+                        color_final = self.C_ORANGE
                 
                 line_buffer += f"{color_final}{char_final}"
             
