@@ -222,18 +222,23 @@ class ThreadChartRenderer:
                     char_final = " "
                 
                 else:
-                    # EDGE - smooth LUT!
-                    ly1 = int(max(0, min(4, y1 - row_bottom)))
-                    ly2 = int(max(0, min(4, y2 - row_bottom)))
+                    # EDGE - smooth LUT with crisp rounding!
+                    ly1 = round(max(0, min(4, y1 - row_bottom)))
+                    ly2 = round(max(0, min(4, y2 - row_bottom)))
                     char_final = LUT_SMOOTH[ly1][ly2]
                     color_final = self.C_ORANGE
                 
-                # LAYER 2: Green chain overlay (from demo!)
+                # LAYER 2: Green chain overlay - ONLY on the row containing the actual value
                 if data_idx < len(green_data) - 1:
                     g_y1, g_y2 = green_data[data_idx], green_data[data_idx + 1]
-                    seg_min, seg_max = min(g_y1, g_y2), max(g_y1, g_y2)
                     
-                    if seg_max > row_bottom and seg_min < row_top:
+                    # Only render on the row where the green value actually falls
+                    # Check if the green value's integer row matches this row
+                    green_row_1 = int(g_y1 / 4)
+                    green_row_2 = int(g_y2 / 4)
+                    
+                    # Only render if this row (r) matches where green should be
+                    if r == green_row_1 or r == green_row_2:
                         gy1_loc = int(max(0, min(4, g_y1 - row_bottom)))
                         gy2_loc = int(max(0, min(4, g_y2 - row_bottom)))
                         chain_char = LUT_CHAIN[gy1_loc][gy2_loc]
