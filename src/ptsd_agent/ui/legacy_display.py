@@ -712,10 +712,16 @@ class ProgressiveDisplay:
                         if hasattr(self.thread_pool, 'max_threads'):
                             self.thread_chart.set_max_threads(self.thread_pool.max_threads)
                     
-                    # Use active_count (passed from caller) for chart data
-                    # active_count = number of currently running components/processes
+                    # Get operation breakdown from thread_pool (real types) or fallback to EXECUTION
                     from ptsd_agent.core.thread_pool import OperationType
-                    ops_by_type = {OperationType.EXECUTION: active_count} if active_count > 0 else {}
+                    ops_by_type = {}
+                    if hasattr(self, 'thread_pool') and self.thread_pool:
+                        if hasattr(self.thread_pool, 'get_active_operations_by_type'):
+                            ops_by_type = self.thread_pool.get_active_operations_by_type()
+                    
+                    # Fallback: if no real breakdown, use active_count as EXECUTION
+                    if not ops_by_type and active_count > 0:
+                        ops_by_type = {OperationType.EXECUTION: active_count}
                     
                     # ALWAYS add data point on progress change (even if 0 threads)
                     # This ensures chart timeline matches progress bar

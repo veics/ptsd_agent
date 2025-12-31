@@ -249,6 +249,19 @@ class ThreadPoolCoordinator:
         with self.active_lock:
             return len(self.active_operations)
     
+    def get_active_operations_by_type(self) -> Dict[OperationType, int]:
+        """Get breakdown of active operations by type.
+        
+        Returns:
+            Dict mapping OperationType to count of active operations
+        """
+        with self.active_lock:
+            ops_by_type = {}
+            for op in self.active_operations.values():
+                op_type = op.operation_type
+                ops_by_type[op_type] = ops_by_type.get(op_type, 0) + 1
+            return ops_by_type
+    
     def get_stats(self) -> Dict:
         """Get execution statistics.
         
