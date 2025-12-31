@@ -162,21 +162,15 @@ class ThreadChartRenderer:
         scale_y = (self.height * 4) / (effective_max + 1)
         norm_data = [(v * scale_y) for v in values]
         
-        # EXECUTION BLOCK DETECTION: Detect when new execution blocks start
-        # A new block starts when thread count spikes up after being low
-        # This cycles through colors for distinct visual blocks
+        # SEGMENT-BASED COLOR: Cycle colors every segment of data points
+        # This creates distinct visual blocks at regular intervals
         block_colors = []  # Color index for each data point
-        current_color_idx = 0
-        prev_value = 0
-        spike_threshold = max(3, effective_max * 0.15)  # 15% of max or at least 3
+        num_points = len(values)
+        segment_size = max(1, num_points // len(self.EXECUTION_COLORS))  # Divide data into segments
         
-        for v in values:
-            # Detect spike: value increased significantly from low baseline
-            if v > prev_value + spike_threshold and prev_value < spike_threshold * 2:
-                # New execution block - cycle to next color
-                current_color_idx = (current_color_idx + 1) % len(self.EXECUTION_COLORS)
-            block_colors.append(current_color_idx)
-            prev_value = v
+        for i, v in enumerate(values):
+            color_idx = (i // segment_size) % len(self.EXECUTION_COLORS)
+            block_colors.append(color_idx)
         
         # Calculate filled columns once (used by all rows)
         if self._progress_pct is not None:
