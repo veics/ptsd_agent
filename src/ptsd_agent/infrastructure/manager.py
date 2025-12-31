@@ -227,7 +227,7 @@ class InfrastructureManager:
                     error_message=f"Docker startup failed: {docker_result.error_message}"
                 )
         
-        # Phase 3: Run migrations
+        # Phase 3: Run migrations (non-fatal - just warn on failure)
         if self.config.migrations_enabled:
             self._emit_progress(InfrastructurePhase.MIGRATIONS, "Running migrations...", 0.0)
             
@@ -241,15 +241,10 @@ class InfrastructureManager:
                 else:
                     migrations_result = MigrationResult(success=True, details=["No migrations found"])
             
+            # Migrations are non-fatal - log warning but continue
             if not migrations_result.success:
-                return InfrastructureResult(
-                    success=False,
-                    phase=InfrastructurePhase.MIGRATIONS,
-                    dependencies=deps_result,
-                    docker=docker_result,
-                    migrations=migrations_result,
-                    error_message=f"Migrations failed: {migrations_result.error_message}"
-                )
+                logger.warning(f"Migrations had issues: {migrations_result.error_message}")
+                # Don't return failure - just set the result and continue
         
         self._emit_progress(InfrastructurePhase.COMPLETE, "Infrastructure ready", 1.0)
         
