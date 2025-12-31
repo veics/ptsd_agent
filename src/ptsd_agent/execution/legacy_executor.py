@@ -231,7 +231,8 @@ class TestExecutor:
                 self._concurrent_subprocesses += 1
             
             try:
-                return self._run_pytest(component_name, test_file, pythonpath, callback=callback)
+                # Skip coverage storage for individual file runs - we'll aggregate at the end
+                return self._run_pytest(component_name, test_file, pythonpath, callback=callback, skip_coverage_storage=True)
             finally:
                 # Decrement counter (always, even on exception)
                 with self._subprocess_lock:
@@ -252,6 +253,11 @@ class TestExecutor:
                     logger.debug(f"[{component_name}] {test_file} completed with exit code {exit_code}")
                 except Exception as e:
                     logger.error(f"[{component_name}] {test_file} failed: {e}")
+        
+        # After parallel file runs complete, run a final pass on the entire component
+        # to get accurate aggregated coverage and warnings
+        logger.debug(f"[{component_name}] Running final coverage pass for component")
+        self._run_final_coverage_pass(component_name, test_path, pythonpath)
     
     def _discover_test_files(self, test_path: str) -> List[str]:
         """Discover all test files in a directory."""
@@ -266,6 +272,67 @@ class TestExecutor:
             test_files.extend(str(f) for f in test_path_obj.rglob(pattern))
         
         return sorted(set(test_files))
+
+    def _run_final_coverage_pass(self, component_name: str, test_path: str, pythonpath: str = None):
+        """Run a quick coverage-only pass on entire component after parallel file runs.
+        
+        This collects accurate aggregated coverage and warnings numbers
+        since individual file runs don't provide proper aggregate coverage.
+        Uses --collect-only to skip actual test execution (tests already ran).
+        """
+        env = os.environ.copy()
+        if pythonpath:
+            existing = env.get('PYTHONPATH', '')
+            env['PYTHONPATH'] = f"{pythonpath}:{existing}" if existing else pythonpath
+        
+        pytest_cmd, python_exe = self._get_pytest_executable(test_path)
+        
+        # Build coverage command - just collect coverage data
+        cov_path_str = self._get_coverage_path_for_component(component_name, test_path)
+        if not cov_path_str:
+            logger.debug(f"[{component_name}] No coverage path - skipping final coverage pass")
+            return
+        
+        # Run pytest with coverage but skip test execution by using --collect-only
+        # This just loads the test files which triggers coverage measurement
+        if " -m pytest" in pytest_cmd:
+            cmd = [python_exe, "-m", "pytest", "-q", "--cov", cov_path_str, "--cov-report", "term-missing:skip-covered", test_path]
+        else:
+            cmd = [pytest_cmd, "-q", "--cov", cov_path_str, "--cov-report", "term-missing:skip-covered", test_path]
+        
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                env=env,
+                cwd=self.project_root,
+                timeout=120
+            )
+            
+            output = result.stdout + result.stderr
+            
+            # Parse coverage from output
+            import re
+            total_match = re.search(r'TOTAL\s+\d+\s+\d+\s+(\d+(?:\.\d+)?)%', output, re.MULTILINE)
+            if total_match:
+                coverage_pct = float(total_match.group(1))
+                self.collector.set_coverage(component_name, coverage_pct)
+                logger.debug(f"[{component_name}] Final coverage: {coverage_pct}%")
+            
+            # Parse warnings from summary
+            warnings_match = re.search(r'(\d+)\s+warning', output)
+            if warnings_match:
+                warnings_count = int(warnings_match.group(1))
+                # Only set if non-zero (don't overwrite with 0)
+                if warnings_count > 0:
+                    self.collector.set_warnings(component_name, warnings_count)
+                    logger.debug(f"[{component_name}] Final warnings: {warnings_count}")
+                    
+        except subprocess.TimeoutExpired:
+            logger.warning(f"[{component_name}] Final coverage pass timed out")
+        except Exception as e:
+            logger.warning(f"[{component_name}] Final coverage pass failed: {e}")
 
     
     def _discover_tests(self, test_path: str, pythonpath: str = None) -> tuple:
@@ -340,8 +407,17 @@ class TestExecutor:
 
 
     
-    def _run_pytest(self, component_name: str, test_path: str, pythonpath: str = None, callback=None) -> int:
-        """Run pytest with real-time output streaming and coverage"""
+    def _run_pytest(self, component_name: str, test_path: str, pythonpath: str = None, callback=None, skip_coverage_storage: bool = False) -> int:
+        """Run pytest with real-time output streaming and coverage
+        
+        Args:
+            component_name: Name of the component being tested
+            test_path: Path to test file or directory
+            pythonpath: Optional PYTHONPATH to set
+            callback: Optional callback for test progress
+            skip_coverage_storage: If True, don't store coverage/warnings 
+                                   (used for parallel file runs where aggregation is needed)
+        """
         # Build environment with PYTHONPATH if needed
         env = os.environ.copy()
         if pythonpath:
@@ -479,22 +555,23 @@ class TestExecutor:
             full_output = ''.join(output_lines)
             self._extract_diagnostics(component_name, full_output)
             
-            # Store coverage if collected
-            if coverage_pct is not None:
+            # Store coverage if collected (skip for individual file runs in parallel mode)
+            if coverage_pct is not None and not skip_coverage_storage:
                 self.collector.set_coverage(component_name, coverage_pct)
                 logger.debug(f"[{component_name}] Set coverage to {coverage_pct}%")
             
             # Store warnings - prefer detailed extraction over summary count
-            # Count warnings from detailed extraction if summary didn't have any
-            if warnings_count is None or warnings_count == 0:
-                detailed_warnings = len(comp.warning_details)
-                if detailed_warnings > 0:
-                    warnings_count = detailed_warnings
-                    logger.debug(f"[{component_name}] Using detailed warning count: {warnings_count}")
-            
-            if warnings_count is not None and warnings_count > 0:
-                self.collector.set_warnings(component_name, warnings_count)
-                logger.debug(f"[{component_name}] Set warnings to {warnings_count}")
+            # Skip for individual file runs in parallel mode
+            if not skip_coverage_storage:
+                if warnings_count is None or warnings_count == 0:
+                    detailed_warnings = len(comp.warning_details)
+                    if detailed_warnings > 0:
+                        warnings_count = detailed_warnings
+                        logger.debug(f"[{component_name}] Using detailed warning count: {warnings_count}")
+                
+                if warnings_count is not None and warnings_count > 0:
+                    self.collector.set_warnings(component_name, warnings_count)
+                    logger.debug(f"[{component_name}] Set warnings to {warnings_count}")
             
             # Preserve coverage file to permanent storage if configured
             if self.coverage_storage_dir and self.run_id and env.get('COVERAGE_FILE'):
