@@ -208,18 +208,24 @@ class ThreadChartRenderer:
                 
                 # LAYER 1: Base chart (orange blocks)
                 if y1 >= row_top and y2 >= row_top:
-                    # Full block - NOT the top edge
+                    # Full block
                     point = self.timeline_data[min(data_idx, len(self.timeline_data) - 1)]
                     if point.operations:
                         op = max(point.operations.items(), key=lambda x: x[1])[0]
                         color_final = self.OP_COLORS_MAP.get(op, self.C_RESET)
                     char_final = CHAR_FILL
+                    
+                    # ALSO render green on top if this is the top edge row
+                    if is_top_edge_row:
+                        # Green dots at the top of the full block
+                        char_final = LUT_CHAIN[4][4]  # Top position dots
+                        color_final = self.C_GREEN
                 
                 elif y1 < row_bottom and y2 < row_bottom:
                     char_final = " "
                 
                 else:
-                    # EDGE row - this is where green line should go!
+                    # EDGE row - render green at top edge, orange otherwise
                     ly1 = int(max(0, min(4, y1 - row_bottom + 0.5)))
                     ly2 = int(max(0, min(4, y2 - row_bottom + 0.5)))
                     
