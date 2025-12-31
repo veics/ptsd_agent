@@ -35,10 +35,11 @@ class TestExecutor:
     
     def __init__(self, collector: MetricsCollector, coverage_temp_dir: str = None, 
                  coverage_storage_dir: str = None, run_id: str = None, thread_pool=None,
-                 parallel_workers: int = 1):
+                 parallel_workers: int = 1, project_root: str = None):
         self.collector = collector
         self.thread_pool = thread_pool  # NEW: Thread pool for operations
         self.parallel_workers = parallel_workers  # NEW: Test-level parallelism (pytest-xdist -n)
+        self.project_root = project_root  # NEW: Explicit project root for subprocess cwd
         import tempfile
         import threading
         self.coverage_temp_dir = coverage_temp_dir or tempfile.gettempdir()
@@ -375,7 +376,7 @@ class TestExecutor:
                 text=True,
                 bufsize=1,
                 env=env,
-                cwd=None  # Run from project root
+                cwd=self.project_root  # Use explicit project root for consistent test execution
             )
             
             # Stream output and parse in real-time

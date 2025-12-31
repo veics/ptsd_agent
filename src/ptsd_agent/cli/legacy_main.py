@@ -770,14 +770,16 @@ def main():
             coverage_storage_dir=coverage_storage_dir,
             run_id=run_id,
             thread_pool=thread_pool,
-            parallel_workers=max_workers  # Enable test-level parallelism via pytest-xdist
+            parallel_workers=max_workers,  # Enable test-level parallelism via pytest-xdist
+            project_root=os.getcwd()  # Pass explicit project root for subprocess
         )
     else:
         executor = TestExecutor(
             collector, 
             coverage_temp_dir=args.coverage_temp_dir,
             thread_pool=thread_pool,
-            parallel_workers=max_workers  # Enable test-level parallelism via pytest-xdist
+            parallel_workers=max_workers,  # Enable test-level parallelism via pytest-xdist
+            project_root=os.getcwd()  # Pass explicit project root for subprocess
         )
     
     render_lock = threading.Lock()
