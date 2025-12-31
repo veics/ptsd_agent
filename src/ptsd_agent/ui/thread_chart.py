@@ -162,11 +162,11 @@ class ThreadChartRenderer:
         scale_y = (self.height * 4) / (effective_max + 1)
         norm_data = [(v * scale_y) for v in values]
         
-        # SEGMENT-BASED COLORING: Cycle through colors in fixed segments
-        # This creates visual variety as the chart progresses over time
+        # SEGMENT-BASED COLORING: Cycle through colors in small segments
+        # This creates vertical color stripes as the chart progresses
         block_colors = []  # Color index for each data point
         num_colors = len(self.EXECUTION_COLORS)
-        segment_size = max(10, len(values) // (num_colors * 2))  # At least 10 per segment
+        segment_size = 4  # Very small segments for frequent color changes
         
         for i, v in enumerate(values):
             # Change color every segment_size data points
