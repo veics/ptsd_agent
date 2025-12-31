@@ -728,8 +728,9 @@ class ProgressiveDisplay:
                         if hasattr(self.thread_pool, 'get_active_operations_by_type'):
                             ops_by_type = self.thread_pool.get_active_operations_by_type()
                     
-                    # Fallback: if no real breakdown, use active_count with current operation type
-                    if not ops_by_type and active_count > 0:
+                    # Fallback: if no real breakdown, use current operation type
+                    # Always record the current phase for proper coloring
+                    if not ops_by_type:
                         # Map string operation type to enum
                         op_type_map = {
                             'discovery': OperationType.DISCOVERY,
@@ -739,7 +740,8 @@ class ProgressiveDisplay:
                             'cache': OperationType.CACHE,
                         }
                         current_op = op_type_map.get(self._current_operation_type, OperationType.EXECUTION)
-                        ops_by_type = {current_op: active_count}
+                        # Use at least 1 to ensure the data point is visible in chart
+                        ops_by_type = {current_op: max(1, active_count)}
                     
                     # ALWAYS add data point on progress change (even if 0 threads)
                     # This ensures chart timeline matches progress bar
