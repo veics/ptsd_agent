@@ -1083,7 +1083,7 @@ def main():
         # Progress already initialized to 0 at component creation (line 752)
         # Don't modify it - let update_current_test callback handle updates
         c_state["current_test"] = f"Initializing..."
-        display.set_operation_type('discovery')  # Chart shows discovery color during init
+        display.set_operation_type('discovery', component=c_name)  # Track discovery per component
         render_all()
 
         # Simulation Mode: Load from history instead of running tests
@@ -1170,7 +1170,7 @@ def main():
 
         # Execute with component-specific test path from config
         test_path = project_config.get_component_test_path(p_id, c_name)
-        display.set_operation_type('execution')  # Chart shows execution color during test running
+        display.set_operation_type('execution', component=c_name)  # Track execution per component
         executor.run_component(p_id, c_name, test_path=test_path, simulation=simulation_mode, callback=update_current_test)
 
         # Post-Execution Update

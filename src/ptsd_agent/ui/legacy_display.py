@@ -176,18 +176,37 @@ class ProgressiveDisplay:
         
         self.lines = []
         self._current_operation_type = 'execution'  # Default operation type for chart coloring
+        self._component_operation_types = {}  # Per-component operation types
     
     def refresh_width(self):
         """Refresh terminal width before building lines."""
         self.term_width = max(self.MIN_TERM_WIDTH, self.terminal.get_size()[0])
     
-    def set_operation_type(self, op_type: str):
-        """Set the current operation type for chart coloring.
+    def set_operation_type(self, op_type: str, component: str = None):
+        """Set the operation type for a component or default.
         
         Args:
             op_type: One of 'discovery', 'execution', 'ai', 'fix', 'cache'
+            component: Optional component name for per-component tracking
         """
-        self._current_operation_type = op_type
+        if component:
+            self._component_operation_types[component] = op_type
+        else:
+            self._current_operation_type = op_type
+    
+    def get_active_operation_types(self) -> dict:
+        """Get counts of active operation types across all components.
+        
+        Returns:
+            Dict mapping operation type string to count
+        """
+        from collections import Counter
+        # Count operation types from all tracked components
+        counts = Counter(self._component_operation_types.values())
+        # If no components tracked, use default
+        if not counts:
+            counts[self._current_operation_type] = 1
+        return dict(counts)
         
     def build_metrics_block(self, component_name=None, component_names=None):
         """Build metrics block using MetricsBlock class - delegates to components.py"""
@@ -721,27 +740,27 @@ class ProgressiveDisplay:
                         if hasattr(self.thread_pool, 'max_threads'):
                             self.thread_chart.set_max_threads(self.thread_pool.max_threads)
                     
-                    # Get operation breakdown from thread_pool (real types) or fallback to EXECUTION
+                    # Get ALL active operation types across components
+                    # This captures concurrent discovery + execution phases
                     from ptsd_agent.core.thread_pool import OperationType
-                    ops_by_type = {}
-                    if hasattr(self, 'thread_pool') and self.thread_pool:
-                        if hasattr(self.thread_pool, 'get_active_operations_by_type'):
-                            ops_by_type = self.thread_pool.get_active_operations_by_type()
+                    op_type_map = {
+                        'discovery': OperationType.DISCOVERY,
+                        'execution': OperationType.EXECUTION,
+                        'ai': OperationType.AI_ANALYSIS,
+                        'fix': OperationType.AUTO_FIX,
+                        'cache': OperationType.CACHE,
+                    }
                     
-                    # Fallback: if no real breakdown, use current operation type
-                    # Always record the current phase for proper coloring
+                    # Get counts of each operation type from tracked components
+                    op_counts = self.get_active_operation_types()
+                    ops_by_type = {}
+                    for op_str, count in op_counts.items():
+                        op_enum = op_type_map.get(op_str, OperationType.EXECUTION)
+                        ops_by_type[op_enum] = count
+                    
+                    # Ensure at least one visible data point
                     if not ops_by_type:
-                        # Map string operation type to enum
-                        op_type_map = {
-                            'discovery': OperationType.DISCOVERY,
-                            'execution': OperationType.EXECUTION,
-                            'ai': OperationType.AI_ANALYSIS,
-                            'fix': OperationType.AUTO_FIX,
-                            'cache': OperationType.CACHE,
-                        }
-                        current_op = op_type_map.get(self._current_operation_type, OperationType.EXECUTION)
-                        # Use at least 1 to ensure the data point is visible in chart
-                        ops_by_type = {current_op: max(1, active_count)}
+                        ops_by_type = {OperationType.EXECUTION: max(1, active_count)}
                     
                     # ALWAYS add data point on progress change (even if 0 threads)
                     # This ensures chart timeline matches progress bar
