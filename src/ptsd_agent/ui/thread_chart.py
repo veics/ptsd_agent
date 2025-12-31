@@ -164,8 +164,24 @@ class ThreadChartRenderer:
         green_row = self.height - 1  # The reserved top row
         green_data_y = green_row * 4 + 2  # Fixed Y position in top row (middle of top row)
         
-        # Render rows
-        for r in range(self.height - 1, -1, -1):
+        # Calculate filled columns once (used by all rows)
+        if self._progress_pct is not None:
+            filled_columns = int((self._progress_pct / 100.0) * self.chart_width)
+        else:
+            filled_columns = len(norm_data) if norm_data else 0
+        filled_columns = min(filled_columns, self.chart_width)
+        
+        # FIRST: Render GREEN LINE ROW (dedicated top row)
+        green_line = f"{self.C_LABEL}     {self.C_AXIS}┃ {self.C_RESET}"
+        for i in range(self.chart_width):
+            if i < filled_columns:
+                green_line += f"{self.C_GREEN}{LUT_CHAIN[2][2]}"  # Middle dots
+            else:
+                green_line += " "
+        output.append(green_line + self.C_RESET)
+        
+        # THEN: Render DATA rows (0 to height-2, since height-1 is green line)
+        for r in range(self.height - 2, -1, -1):
             line_buffer = ""
             
             # Y-axis with cyan separator
@@ -176,13 +192,6 @@ class ThreadChartRenderer:
             
             row_bottom = r * 4
             row_top = (r + 1) * 4
-            
-            # Calculate how many columns to fill based on progress
-            if self._progress_pct is not None:
-                filled_columns = int((self._progress_pct / 100.0) * self.chart_width)
-            else:
-                filled_columns = len(norm_data)
-            filled_columns = min(filled_columns, self.chart_width)
             
             # Render FULL chart width
             for i in range(self.chart_width):
@@ -220,20 +229,11 @@ class ThreadChartRenderer:
                     char_final = " "
                 
                 else:
-                    # EDGE - smooth LUT with crisp rounding!
-                    ly1 = round(max(0, min(4, y1 - row_bottom)))
-                    ly2 = round(max(0, min(4, y2 - row_bottom)))
+                    # EDGE - crisp with int(x + 0.5) for threshold rounding
+                    ly1 = int(max(0, min(4, y1 - row_bottom + 0.5)))
+                    ly2 = int(max(0, min(4, y2 - row_bottom + 0.5)))
                     char_final = LUT_SMOOTH[ly1][ly2]
                     color_final = self.C_ORANGE
-                
-                # LAYER 2: Green dotted line - ALWAYS rendered in TOP ROW
-                # Top row is reserved for green line (r == self.height - 1)
-                if r == self.height - 1 and i < filled_columns:
-                    # Simple dotted pattern in the middle of the top row
-                    # Use dots at fixed position (middle of row = 2)
-                    chain_char = LUT_CHAIN[2][2]  # Middle dots
-                    char_final = chain_char
-                    color_final = self.C_GREEN
                 
                 line_buffer += f"{color_final}{char_final}"
             
