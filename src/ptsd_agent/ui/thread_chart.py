@@ -58,16 +58,18 @@ class ThreadChartRenderer:
     C_LABEL = '\033[38;5;250m'
     C_RESET = '\033[0m'
     
-    # Operation type colors - specific colors for each execution context
-    OP_TYPE_COLORS = {
-        'discovery': '\033[38;5;75m',   # Light blue - discovery/init phase
-        'execution': '\033[38;5;108m',  # Sage green - test execution
-        'ai': '\033[38;5;180m',         # Tan - AI analysis
-        'fix': '\033[38;5;174m',        # Dusty rose - auto-fixing
-        'cache': '\033[38;5;109m',      # Teal - cache operations
-    }
-    # Default color for fallback
-    DEFAULT_OP_COLOR = '\033[38;5;108m'  # Sage green
+    # Row colors - each horizontal band gets a distinct color (bottom to top)
+    # Creates visual variety within each column
+    ROW_COLORS = [
+        '\033[38;5;214m',  # Row 0: Orange (bottom)
+        '\033[38;5;220m',  # Row 1: Yellow
+        '\033[38;5;42m',   # Row 2: Green
+        '\033[38;5;39m',   # Row 3: Cyan
+        '\033[38;5;75m',   # Row 4: Light Blue
+        '\033[38;5;99m',   # Row 5: Purple (top)
+        '\033[38;5;168m',  # Row 6: Pink
+        '\033[38;5;202m',  # Row 7: Red-orange
+    ]
     
     def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 6, colors: dict = None):
         """Initialize.
@@ -226,14 +228,13 @@ class ThreadChartRenderer:
                 top_row = max(int(y1 / 4), int(y2 / 4))
                 is_top_row = (r == top_row)
                 
-                # OPERATION TYPE COLOR: Use color based on actual operation type
-                op_key = op_types[data_idx] if data_idx < len(op_types) else 'execution'
-                op_color = self.OP_TYPE_COLORS.get(op_key, self.DEFAULT_OP_COLOR)
+                # ROW-BASED COLOR: Each horizontal band gets a distinct color
+                row_color = self.ROW_COLORS[r % len(self.ROW_COLORS)]
                 
-                # LAYER 1: Base chart (colored by operation type)
+                # LAYER 1: Base chart (colored by row/band)
                 if y1 >= row_top and y2 >= row_top:
-                    # Full block - use operation type color
-                    color_final = op_color
+                    # Full block - use row color
+                    color_final = row_color
                     char_final = CHAR_FILL
                     
                     # ALSO render green on top if this is THE top row
@@ -261,9 +262,9 @@ class ThreadChartRenderer:
                         char_final = LUT_CHAIN[gy1][gy2]
                         color_final = self.C_GREEN
                     else:
-                        # Lower edge - use operation type color with braille pattern
+                        # Lower edge - use row color with braille pattern
                         char_final = LUT_SMOOTH[ly1][ly2]
-                        color_final = op_color
+                        color_final = row_color
                 
                 line_buffer += f"{color_final}{char_final}"
             
