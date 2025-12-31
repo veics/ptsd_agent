@@ -193,6 +193,28 @@ class ProgressiveDisplay:
             self._component_operation_types[component] = op_type
         else:
             self._current_operation_type = op_type
+        
+        # Force immediate chart data point to capture brief phases like discovery
+        if self.thread_chart_enabled and self.thread_chart:
+            try:
+                from ptsd_agent.core.thread_pool import OperationType
+                op_type_map = {
+                    'discovery': OperationType.DISCOVERY,
+                    'execution': OperationType.EXECUTION,
+                    'ai': OperationType.AI_ANALYSIS,
+                    'fix': OperationType.AUTO_FIX,
+                    'cache': OperationType.CACHE,
+                }
+                # Get current counts and add data point immediately
+                op_counts = self.get_active_operation_types()
+                ops_by_type = {}
+                for op_str, count in op_counts.items():
+                    op_enum = op_type_map.get(op_str, OperationType.EXECUTION)
+                    ops_by_type[op_enum] = count
+                if ops_by_type:
+                    self.thread_chart.add_data_point(ops_by_type)
+            except Exception:
+                pass  # Silently ignore errors
     
     def get_active_operation_types(self) -> dict:
         """Get counts of active operation types across all components.
