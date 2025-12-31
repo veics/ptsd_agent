@@ -762,8 +762,7 @@ class ProgressiveDisplay:
                         if hasattr(self.thread_pool, 'max_threads'):
                             self.thread_chart.set_max_threads(self.thread_pool.max_threads)
                     
-                    # Get ALL active operation types across components
-                    # This captures concurrent discovery + execution phases
+                    # Get operation types and distribute ACTUAL thread count across them
                     from ptsd_agent.core.thread_pool import OperationType
                     op_type_map = {
                         'discovery': OperationType.DISCOVERY,
@@ -773,14 +772,26 @@ class ProgressiveDisplay:
                         'cache': OperationType.CACHE,
                     }
                     
-                    # Get counts of each operation type from tracked components
+                    # Get operation type distribution (how many components in each phase)
                     op_counts = self.get_active_operation_types()
-                    ops_by_type = {}
-                    for op_str, count in op_counts.items():
-                        op_enum = op_type_map.get(op_str, OperationType.EXECUTION)
-                        ops_by_type[op_enum] = count
+                    total_components = sum(op_counts.values()) or 1
                     
-                    # Ensure at least one visible data point
+                    # Distribute actual active_count proportionally across operation types
+                    ops_by_type = {}
+                    remaining = active_count
+                    for op_str, comp_count in op_counts.items():
+                        op_enum = op_type_map.get(op_str, OperationType.EXECUTION)
+                        # Proportional distribution of actual threads
+                        op_threads = int(active_count * comp_count / total_components)
+                        remaining -= op_threads
+                        ops_by_type[op_enum] = max(1, op_threads)  # At least 1 to be visible
+                    
+                    # Add any remaining threads to the largest group
+                    if remaining > 0 and ops_by_type:
+                        largest_op = max(ops_by_type, key=ops_by_type.get)
+                        ops_by_type[largest_op] += remaining
+                    
+                    # Fallback if no operation types tracked
                     if not ops_by_type:
                         ops_by_type = {OperationType.EXECUTION: max(1, active_count)}
                     
