@@ -58,15 +58,20 @@ class ThreadChartRenderer:
     C_LABEL = '\033[38;5;250m'
     C_RESET = '\033[0m'
     
-    # Operation colors - use string VALUES for compatibility across modules
-    OP_COLORS_MAP = {
-        'discovery': '\033[38;5;110m',   # Light blue
-        'execution': '\033[38;5;108m',   # Sage green
-        'ai': '\033[38;5;180m',          # Tan/khaki
-        'fix': '\033[38;5;174m',         # Dusty rose
-        'cache': '\033[38;5;109m',       # Teal
-        'research': '\033[38;5;139m',    # Purple (new)
-    }
+    # Density-based color gradient (cool to warm based on thread utilization)
+    # Colors transition from blue/teal (low) -> green/yellow (mid) -> orange/red (high)
+    DENSITY_COLORS = [
+        '\033[38;5;24m',   # 0-10%: Dark blue
+        '\033[38;5;30m',   # 10-20%: Teal
+        '\033[38;5;36m',   # 20-30%: Cyan-green
+        '\033[38;5;42m',   # 30-40%: Green
+        '\033[38;5;78m',   # 40-50%: Light green
+        '\033[38;5;148m',  # 50-60%: Yellow-green
+        '\033[38;5;214m',  # 60-70%: Orange
+        '\033[38;5;208m',  # 70-80%: Dark orange
+        '\033[38;5;202m',  # 80-90%: Red-orange
+        '\033[38;5;196m',  # 90-100%: Red
+    ]
     
     def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 6, colors: dict = None):
         """Initialize.
@@ -208,19 +213,17 @@ class ThreadChartRenderer:
                 top_row = max(int(y1 / 4), int(y2 / 4))
                 is_top_row = (r == top_row)
                 
-                # Get operation color for this data point
-                point = self.timeline_data[min(data_idx, len(self.timeline_data) - 1)]
-                op_color = self.C_ORANGE  # Default orange
-                if point.operations:
-                    op = max(point.operations.items(), key=lambda x: x[1])[0]
-                    # Use .value to get string key for lookup (handles different OperationType enums)
-                    op_key = op.value if hasattr(op, 'value') else str(op)
-                    op_color = self.OP_COLORS_MAP.get(op_key, self.C_ORANGE)
+                # DENSITY-BASED COLOR: Pick color based on thread utilization
+                # y_max is the thread count at this column, max_threads is the maximum
+                y_max = max(y1, y2)
+                density_pct = min(1.0, y_max / (self.max_threads * 4)) if self.max_threads > 0 else 0
+                color_idx = int(density_pct * (len(self.DENSITY_COLORS) - 1))
+                density_color = self.DENSITY_COLORS[color_idx]
                 
-                # LAYER 1: Base chart (colored by operation type)
+                # LAYER 1: Base chart (colored by density gradient)
                 if y1 >= row_top and y2 >= row_top:
-                    # Full block - use operation color
-                    color_final = op_color
+                    # Full block - use density color
+                    color_final = density_color
                     char_final = CHAR_FILL
                     
                     # ALSO render green on top if this is THE top row
@@ -248,9 +251,9 @@ class ThreadChartRenderer:
                         char_final = LUT_CHAIN[gy1][gy2]
                         color_final = self.C_GREEN
                     else:
-                        # Lower edge - use operation color with braille pattern
+                        # Lower edge - use density color with braille pattern
                         char_final = LUT_SMOOTH[ly1][ly2]
-                        color_final = op_color
+                        color_final = density_color
                 
                 line_buffer += f"{color_final}{char_final}"
             
