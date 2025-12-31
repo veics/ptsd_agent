@@ -58,13 +58,14 @@ class ThreadChartRenderer:
     C_LABEL = '\033[38;5;250m'
     C_RESET = '\033[0m'
     
-    # Operation colors
+    # Operation colors - use string VALUES for compatibility across modules
     OP_COLORS_MAP = {
-        OperationType.DISCOVERY: '\033[38;5;110m',
-        OperationType.EXECUTION: '\033[38;5;108m',
-        OperationType.AI_ANALYSIS: '\033[38;5;180m',
-        OperationType.AUTO_FIX: '\033[38;5;174m',
-        OperationType.CACHE: '\033[38;5;109m',
+        'discovery': '\033[38;5;110m',   # Light blue
+        'execution': '\033[38;5;108m',   # Sage green
+        'ai': '\033[38;5;180m',          # Tan/khaki
+        'fix': '\033[38;5;174m',         # Dusty rose
+        'cache': '\033[38;5;109m',       # Teal
+        'research': '\033[38;5;139m',    # Purple (new)
     }
     
     def __init__(self, max_threads: int = 12, terminal_width: int = None, height: int = 6, colors: dict = None):
@@ -212,7 +213,9 @@ class ThreadChartRenderer:
                 op_color = self.C_ORANGE  # Default orange
                 if point.operations:
                     op = max(point.operations.items(), key=lambda x: x[1])[0]
-                    op_color = self.OP_COLORS_MAP.get(op, self.C_ORANGE)
+                    # Use .value to get string key for lookup (handles different OperationType enums)
+                    op_key = op.value if hasattr(op, 'value') else str(op)
+                    op_color = self.OP_COLORS_MAP.get(op_key, self.C_ORANGE)
                 
                 # LAYER 1: Base chart (colored by operation type)
                 if y1 >= row_top and y2 >= row_top:
