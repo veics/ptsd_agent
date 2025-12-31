@@ -198,14 +198,16 @@ class ThreadChartRenderer:
                 
                 y1, y2 = norm_data[data_idx], norm_data[data_idx + 1]
                 y_max = max(y1, y2)  # Top edge of the data at this column
+                y_min = min(y1, y2)
                 
                 char_final = " "
                 color_final = self.C_RESET
-                is_top_edge_row = False
                 
                 # Check if this row contains the TOP EDGE of the data
-                top_edge_row = int(y_max / 4)
-                is_top_edge_row = (r == top_edge_row)
+                # Include both y1 and y2 rows to avoid gaps during transitions
+                top_row_y1 = int(y1 / 4)
+                top_row_y2 = int(y2 / 4)
+                is_top_edge_row = (r == top_row_y1 or r == top_row_y2 or r == int(y_max / 4))
                 
                 # LAYER 1: Base chart (orange blocks)
                 if y1 >= row_top and y2 >= row_top:
@@ -229,21 +231,16 @@ class ThreadChartRenderer:
                     char_final = " "
                 
                 else:
-                    # EDGE row - render green at top edge, orange otherwise
+                    # EDGE row - always render as green with wave since this IS the top edge
                     ly1 = int(max(0, min(4, y1 - row_bottom + 0.5)))
                     ly2 = int(max(0, min(4, y2 - row_bottom + 0.5)))
                     
-                    if is_top_edge_row:
-                        # Render GREEN dotted line at the top edge with wave
-                        wave = math.sin(i * 0.3) * 0.8
-                        gy1 = int(max(0, min(4, ly1 + wave)))
-                        gy2 = int(max(0, min(4, ly2 + math.sin((i + 1) * 0.3) * 0.8)))
-                        char_final = LUT_CHAIN[gy1][gy2]
-                        color_final = self.C_GREEN
-                    else:
-                        # Render orange braille for lower edges
-                        char_final = LUT_SMOOTH[ly1][ly2]
-                        color_final = self.C_ORANGE
+                    # Apply wave oscillation to green dots
+                    wave = math.sin(i * 0.3) * 0.8
+                    gy1 = int(max(0, min(4, ly1 + wave)))
+                    gy2 = int(max(0, min(4, ly2 + math.sin((i + 1) * 0.3) * 0.8)))
+                    char_final = LUT_CHAIN[gy1][gy2]
+                    color_final = self.C_GREEN
                 
                 line_buffer += f"{color_final}{char_final}"
             
