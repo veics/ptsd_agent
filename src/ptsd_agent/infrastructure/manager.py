@@ -46,8 +46,8 @@ class InfrastructureConfig:
     startup_timeout: int = 60
     health_check_interval: int = 2
     
-    # Migrations - enabled when infrastructure is enabled
-    migrations_enabled: bool = True
+    # Migrations - disabled by default (Python 3.14 alembic compatibility issues)
+    migrations_enabled: bool = False
     migration_tool: str = "alembic"
     migration_timeout: int = 120
     
