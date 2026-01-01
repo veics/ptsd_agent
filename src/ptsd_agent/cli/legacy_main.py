@@ -1538,7 +1538,7 @@ def main():
         
         # Display log summary if requested
         if args.show_logs:
-            log_mgr.info("Execution completed", data={"summary": summary})
+            # log_mgr.info("Execution completed", data={"summary": summary})  # TODO: log_mgr not initialized
             # Build discovery stats from discovery_results if available
             discovery_stats = None
             collection_info = None
@@ -1570,14 +1570,16 @@ def main():
                                 baseline_summary['errors'] += p_metrics.get('errors', 0)
                                 baseline_summary['skipped'] += p_metrics.get('skipped', 0)
             
-            log_mgr.display_log_summary(
-                show_paths=True, 
-                test_summary=summary,
-                discovery_stats=discovery_stats,
-                baseline_summary=baseline_summary,
-                targeted_phases=target_phases if target_phases else None,
-                collection_info=collection_info
-            )
+            # TODO: log_mgr not initialized - display basic summary for now
+            print(f"\n📋 Test Summary: {summary.get('passed', 0)} passed, {summary.get('failed', 0)} failed, {summary.get('errors', 0)} errors")
+            # log_mgr.display_log_summary(
+            #     show_paths=True, 
+            #     test_summary=summary,
+            #     discovery_stats=discovery_stats,
+            #     baseline_summary=baseline_summary,
+            #     targeted_phases=target_phases if target_phases else None,
+            #     collection_info=collection_info
+            # )
         
         # Display test files by component if requested
         if args.show_files:
